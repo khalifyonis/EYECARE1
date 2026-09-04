@@ -92,8 +92,8 @@ export function isPathAllowedForRole(pathname: string, user: any, dynamicPermiss
     const role = resolveRoleName(user).toUpperCase()
     if (!role) return false
 
-    // SUPERADMIN bypasses all checks
-    if (role === 'SUPERADMIN') return true
+    // SUPERADMIN and ADMIN bypass all checks
+    if (role === 'SUPERADMIN' || role === 'ADMIN') return true
 
     // 1. Check Open Routes
     if (OPEN_DASHBOARD_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/'))) {

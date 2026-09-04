@@ -116,7 +116,6 @@ export default function EditEyeExamPage() {
     try {
       const res = await api.put(`/eye-examinations/${id}`, payload);
       toast.success('Examination updated successfully');
-      router.push(`/dashboard/eye-examinations/${id}`);
       return res.data;
     } catch (error: unknown) {
       const message =
@@ -124,8 +123,22 @@ export default function EditEyeExamPage() {
           ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
           : undefined;
       toast.error(message || 'Failed to update examination');
+      throw error;
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSuccess = (examId: string, options?: { opticalPrescriptionId?: string; hasMedicine?: boolean }) => {
+    if (stage === 'PRELIMINARY' && options?.opticalPrescriptionId) {
+      router.push(`/dashboard/prescription/optical/${options.opticalPrescriptionId}?print=true`);
+    } else if (stage === 'CLINICAL' && options?.hasMedicine) {
+      router.push(`/dashboard/eye-examinations/${examId}?print=true`);
+    } else {
+      const returnPage = stage === 'CLINICAL' ? '/dashboard/eye-examinations/clinical'
+        : stage === 'PRELIMINARY' ? '/dashboard/eye-examinations/preliminary-exam'
+          : `/dashboard/eye-examinations/${examId}?print=true`;
+      router.push(returnPage);
     }
   };
 
@@ -145,7 +158,10 @@ export default function EditEyeExamPage() {
           initialData={initialData}
           submitting={submitting}
           onSubmit={handleSubmit}
-          cancelHref={`/dashboard/eye-examinations/${id}`}
+          onSuccess={handleSuccess}
+          cancelHref={stage === 'CLINICAL' ? '/dashboard/eye-examinations/clinical'
+            : stage === 'PRELIMINARY' ? '/dashboard/eye-examinations/preliminary-exam'
+              : `/dashboard/eye-examinations/${id}`}
           stage={stage}
         />
       </div>

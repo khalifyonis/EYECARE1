@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import api from '@/lib/axios'
 import { Button } from '@/components/ui/button'
@@ -14,6 +14,7 @@ import {
     FileText,
     MapPin,
     Pencil,
+    Printer,
     Stethoscope,
     User,
     Hash,
@@ -107,6 +108,7 @@ function money(value?: number | string | null) {
 export default function AppointmentDetailsPage() {
     const router = useRouter()
     const params = useParams<{ id: string }>()
+    const searchParams = useSearchParams()
     const id = params?.id
 
     const { can } = usePermission();
@@ -134,8 +136,24 @@ export default function AppointmentDetailsPage() {
     const doctorName = appt?.doctor?.user?.fullName || 'Unassigned'
     const billing = appt?.billings?.[0] || null
 
+    useEffect(() => {
+        if (!loading && appt && searchParams?.get('print') === 'true') {
+            const timer = setTimeout(() => {
+                window.print()
+            }, 300)
+            return () => clearTimeout(timer)
+        }
+    }, [loading, appt, searchParams])
+
     return (
         <div className="min-h-screen bg-slate-50/50">
+            <style jsx global>{`
+                @media print {
+                    .print-hide { display: none !important; }
+                    body { background: white !important; }
+                    .border-slate-200 { border-color: #e2e8f0 !important; }
+                }
+            `}</style>
             {/* ── Page Header — NO background, NO border (matches reference) ── */}
             <div className="px-6 pt-6 pb-2">
                 <h1 className="text-2xl font-bold tracking-tight text-slate-900">Appointment Details</h1>
@@ -146,35 +164,45 @@ export default function AppointmentDetailsPage() {
                 {/* ── Back Link (blue like reference) ── */}
                 <Link
                     href="/dashboard/appointments"
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-[#0EA5E9] hover:text-[#0c8fd0] transition-colors"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-[#0EA5E9] hover:text-[#0c8fd0] transition-colors print-hide"
                 >
                     <ArrowLeft className="h-4 w-4" />
                     Back to Appointments
                 </Link>
 
                 {/* ── Title Bar ── */}
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between print-hide">
                     <h2 className="text-xl font-bold tracking-tight text-slate-900">
                         Appointment: {patientName}
                     </h2>
-                    {canUpdate && (
-                        <div className="flex items-center gap-2">
-                            <Button
-                                onClick={() => router.push(`/dashboard/appointments/${id}/edit`)}
-                                className="bg-[#0EA5E9] hover:bg-[#0c96d4] text-white font-semibold gap-1.5"
-                            >
-                                <Pencil className="h-4 w-4" />
-                                Edit Appointment
-                            </Button>
-                            <Button
-                                onClick={() => router.push(`/dashboard/appointments/${id}/edit?mode=reschedule`)}
-                                className="bg-[#F97316] hover:bg-[#ea6a12] text-white font-semibold gap-1.5"
-                            >
-                                <Calendar className="h-4 w-4" />
-                                Reschedule
-                            </Button>
-                        </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                        <Button
+                            onClick={() => window.print()}
+                            variant="outline"
+                            className="text-slate-700 font-semibold gap-1.5"
+                        >
+                            <Printer className="h-4 w-4" />
+                            Print Details
+                        </Button>
+                        {canUpdate && (
+                            <>
+                                <Button
+                                    onClick={() => router.push(`/dashboard/appointments/${id}/edit`)}
+                                    className="bg-[#0EA5E9] hover:bg-[#0c96d4] text-white font-semibold gap-1.5"
+                                >
+                                    <Pencil className="h-4 w-4" />
+                                    Edit
+                                </Button>
+                                <Button
+                                    onClick={() => router.push(`/dashboard/appointments/${id}/edit?mode=reschedule`)}
+                                    className="bg-[#F97316] hover:bg-[#ea6a12] text-white font-semibold gap-1.5"
+                                >
+                                    <Calendar className="h-4 w-4" />
+                                    Reschedule
+                                </Button>
+                            </>
+                        )}
+                    </div>
                 </div>
 
                 {/* ── Content ── */}
@@ -227,7 +255,7 @@ export default function AppointmentDetailsPage() {
                                             </span>
                                         }
                                     />
-                                    <InfoRow icon={MapPin} label="Location" value={appt.location || 'Not specified'} />
+                                    <InfoRow icon={MapPin} label="Room" value={appt.location || 'Not specified'} />
                                     <InfoRow icon={Clock} label="Time" value={formatTime(appt.appointmentDate)} />
                                     {String(appt.type || '').toLowerCase() === 'surgery' && appt.clinicalExamination?.surgery && (
                                         <>

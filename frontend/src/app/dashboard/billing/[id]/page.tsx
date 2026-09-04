@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
-import { ArrowLeft, Pencil } from 'lucide-react';
+import { ArrowLeft, Pencil, Printer } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { StatusPill, statusToVariant } from '@/components/ui/status-pill';
@@ -55,6 +55,7 @@ function invoiceNo(row: BillingDetails) {
 
 export default function BillingDetailsPage() {
   const params = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const id = params?.id || '';
 
@@ -90,28 +91,49 @@ export default function BillingDetailsPage() {
     return row.lineItems.reduce((sum, li) => sum + Number(li.lineTotal || 0), 0);
   }, [row]);
 
+  useEffect(() => {
+    if (!loading && row && searchParams?.get('print') === 'true') {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, row, searchParams]);
+
   if (loading) return <div className="p-8 text-sm text-slate-500">Loading invoice...</div>;
   if (!row) return <div className="p-8 text-sm text-slate-500">Invoice not found.</div>;
 
   return (
     <div className="w-full min-w-0 p-4 sm:p-5 md:p-6 lg:p-8 space-y-6">
-      <div>
+      <style jsx global>{`
+        @media print {
+          .print-hide { display: none !important; }
+          body { background: white !important; }
+        }
+      `}</style>
+      <div className="print-hide">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-slate-50">Invoice Details</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Review invoice and payment information</p>
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between print-hide">
         <Link href="/dashboard/billing" className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-slate-900">
           <ArrowLeft className="h-4 w-4" />
           Back to Billing
         </Link>
 
-        <Button asChild className="h-10 rounded-lg bg-[#0EA5E9] hover:bg-[#0c96d4] text-white">
-          <Link href={`/dashboard/billing/${row.id}/edit`}>
-            <Pencil className="h-4 w-4" />
-            Edit Invoice
-          </Link>
-        </Button>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" className="h-10 rounded-lg text-slate-700" onClick={() => window.print()}>
+            <Printer className="h-4 w-4 mr-2" />
+            Print Invoice
+          </Button>
+          <Button asChild className="h-10 rounded-lg bg-[#0EA5E9] hover:bg-[#0c96d4] text-white">
+            <Link href={`/dashboard/billing/${row.id}/edit`}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit Invoice
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900/50 p-5 sm:p-6 shadow-sm space-y-5">

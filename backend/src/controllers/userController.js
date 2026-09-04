@@ -152,7 +152,7 @@ const validateEmail = (email) => {
 
 export const createUser = async (req, res, next) => {
     try {
-        let { fullName, username, email, password, roleName, branchId, branchIds, licenseNumber, specialization } = req.body;
+        let { fullName, username, email, password, roleName, branchId, branchIds, licenseNumber, specialization, dailyPatientLimit } = req.body;
 
         // Ensure branchIds is an array
         const finalBranchIds = Array.isArray(branchIds) ? branchIds : (branchId ? [branchId] : []);
@@ -225,6 +225,7 @@ export const createUser = async (req, res, next) => {
                         user: { connect: { id: user.id } },
                         licenseNumber,
                         specialization,
+                        dailyPatientLimit: dailyPatientLimit ? parseInt(dailyPatientLimit, 10) : null,
                         branch: { connect: { id: finalBranchIds[0] } },
                     },
                 });
@@ -238,8 +239,10 @@ export const createUser = async (req, res, next) => {
 
         if (!emailResult.success) {
             // Delete the created user so we do not have an orphaned user without credentials
-            await prisma.user.delete({ where: { id: newUser.id } });
-            const error = new Error(`Failed to send onboarding email to ${email}: ${emailResult.error}`);
+            await prisma.doctor.deleteMany({ where: { userId: newUser.id } }).catch(() => null);
+            await prisma.staffAssignment.deleteMany({ where: { userId: newUser.id } }).catch(() => null);
+            await prisma.user.delete({ where: { id: newUser.id } }).catch(() => null);
+            const error = new Error(`Failed to send onboarding email to ${email}. Please check SMTP configuration. Error: ${emailResult.error}`);
             error.statusCode = 500;
             throw error;
         }
@@ -253,7 +256,7 @@ export const createUser = async (req, res, next) => {
             entityType: ENTITY_TYPES.USER,
             entityId: newUser.id,
             details: `Created user ${newUser.fullName} (${newUser.role})`,
-        }).catch(() => {});
+        }).catch(() => { });
         logAudit(req, {
             branchId: finalBranchIds[0],
             action: AUDIT_ACTIONS.CREATE,
@@ -262,7 +265,7 @@ export const createUser = async (req, res, next) => {
             entityId: newUser.id,
             summary: `Created user account`,
             after: sanitizeForAudit(sanitizedUser),
-        }).catch(() => {});
+        }).catch(() => { });
 
         res.status(201).json({
             message: 'User created successfully',
@@ -277,7 +280,7 @@ export const createUser = async (req, res, next) => {
 export const updateUser = async (req, res, next) => {
     try {
         const { id } = req.params;
-        let { fullName, username, email, password, roleName, branchId, branchIds, licenseNumber, specialization } = req.body;
+        let { fullName, username, email, password, roleName, branchId, branchIds, licenseNumber, specialization, dailyPatientLimit } = req.body;
 
         const existingUser = await prisma.user.findUnique({
             where: { id },
@@ -388,11 +391,13 @@ export const updateUser = async (req, res, next) => {
                     where: { userId: id },
                     update: {
                         specialization: specialization || existingUser.doctor?.specialization || 'OPHTHALMOLOGY',
+                        dailyPatientLimit: dailyPatientLimit !== undefined ? (dailyPatientLimit ? parseInt(dailyPatientLimit, 10) : null) : existingUser.doctor?.dailyPatientLimit,
                         branch: { connect: { id: branchId || existingUser.branchId } },
                     },
                     create: {
                         user: { connect: { id: id } },
                         specialization: specialization || 'OPHTHALMOLOGY',
+                        dailyPatientLimit: dailyPatientLimit ? parseInt(dailyPatientLimit, 10) : null,
                         branch: { connect: { id: branchId || existingUser.branchId } },
                     },
                 });
@@ -412,7 +417,7 @@ export const updateUser = async (req, res, next) => {
             entityType: ENTITY_TYPES.USER,
             entityId: updatedUser.id,
             details: `Updated user ${updatedUser.fullName}`,
-        }).catch(() => {});
+        }).catch(() => { });
         logAudit(req, {
             branchId: updatedUser.branchId,
             action: AUDIT_ACTIONS.UPDATE,
@@ -422,7 +427,7 @@ export const updateUser = async (req, res, next) => {
             summary: `Updated user account`,
             before: sanitizeForAudit(existingUser),
             after: sanitizeForAudit(sanitizedUser),
-        }).catch(() => {});
+        }).catch(() => { });
 
         res.status(200).json({ message: 'User updated successfully', user: sanitizedUser });
     } catch (error) {
@@ -448,7 +453,7 @@ export const deleteUser = async (req, res, next) => {
             entityType: ENTITY_TYPES.USER,
             entityId: user.id,
             details: `Deleted user ${user.fullName}`,
-        }).catch(() => {});
+        }).catch(() => { });
         logAudit(req, {
             branchId: user.branchId,
             action: AUDIT_ACTIONS.DELETE,
@@ -457,7 +462,7 @@ export const deleteUser = async (req, res, next) => {
             entityId: user.id,
             summary: `Deleted user account`,
             before: sanitizeForAudit(user),
-        }).catch(() => {});
+        }).catch(() => { });
 
         await prisma.$transaction(async (tx) => {
             await tx.doctor.delete({ where: { userId: id } }).catch(() => { });

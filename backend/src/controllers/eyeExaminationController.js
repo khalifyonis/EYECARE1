@@ -3,7 +3,7 @@ import { getPaginationParams, sendPaginated } from '../lib/pagination.js';
 import { emitEvent } from '../lib/socket.js';
 
 const verifyStagePermissions = async (role, body, isUpdate, existingExam = null) => {
-  if (role === 'SUPERADMIN') return;
+  if (role === 'SUPERADMIN' || role === 'ADMIN') return;
 
   const permissions = await prisma.rolePermission.findMany({
     where: { roleName: role }
@@ -19,7 +19,7 @@ const verifyStagePermissions = async (role, body, isUpdate, existingExam = null)
   const action = isUpdate ? 'canUpdate' : 'canCreate';
 
   // 1. Check if trying to perform clinical exam actions
-  const hasStage2Fields = 
+  const hasStage2Fields =
     body.anteriorSegmentFindings !== undefined ||
     body.fundusFindings !== undefined ||
     (body.diagnosis && body.diagnosis.trim().length > 0) ||
@@ -27,7 +27,7 @@ const verifyStagePermissions = async (role, body, isUpdate, existingExam = null)
     body.followUpDate !== undefined ||
     body.nextVisitReason !== undefined;
 
-  const isTransitioningToClinicalOrCompleted = 
+  const isTransitioningToClinicalOrCompleted =
     body.stage === 'CLINICAL' || body.stage === 'COMPLETED';
 
   if (hasStage2Fields || isTransitioningToClinicalOrCompleted) {
@@ -67,7 +67,7 @@ const verifyStagePermissions = async (role, body, isUpdate, existingExam = null)
 };
 
 const redactClinicalFields = async (role, examOrExams) => {
-  if (role === 'SUPERADMIN' || !examOrExams) return examOrExams;
+  if (role === 'SUPERADMIN' || role === 'ADMIN' || !examOrExams) return examOrExams;
 
   const permission = await prisma.rolePermission.findFirst({
     where: { roleName: role, module: 'clinical_exams' }
@@ -139,25 +139,25 @@ export const getEyeExaminations = async (req, res, next) => {
       ...getBranchFilter(req),
       ...(patientId ? { patientId: String(patientId) } : {}),
       ...(doctorId ? { doctorId: String(doctorId) } : {}),
-      ...(req.query.stage 
-        ? { stage: { in: String(req.query.stage).split(',').map(s => s.trim()) } } 
+      ...(req.query.stage
+        ? { stage: { in: String(req.query.stage).split(',').map(s => s.trim()) } }
         : {}),
       ...(search
         ? {
-            OR: [
-              { patient: { fullName: { contains: String(search), mode: 'insensitive' } } },
-              { patient: { patientNumber: { contains: String(search), mode: 'insensitive' } } },
-              { patient: { id: { equals: String(search) } } },
-            ],
-          }
+          OR: [
+            { patient: { fullName: { contains: String(search), mode: 'insensitive' } } },
+            { patient: { patientNumber: { contains: String(search), mode: 'insensitive' } } },
+            { patient: { id: { equals: String(search) } } },
+          ],
+        }
         : {}),
       ...((date || from || to || !search)
         ? {
-            createdAt: {
-              gte: from ? new Date(`${from}T00:00:00.000Z`) : (date ? new Date(`${date}T00:00:00.000Z`) : new Date(`${new Date().toISOString().split('T')[0]}T00:00:00.000Z`)),
-              lte: to ? new Date(`${to}T23:59:59.999Z`) : (date ? new Date(`${date}T23:59:59.999Z`) : new Date(`${new Date().toISOString().split('T')[0]}T23:59:59.999Z`)),
-            },
-          }
+          createdAt: {
+            gte: from ? new Date(`${from}T00:00:00.000Z`) : (date ? new Date(`${date}T00:00:00.000Z`) : new Date(`${new Date().toISOString().split('T')[0]}T00:00:00.000Z`)),
+            lte: to ? new Date(`${to}T23:59:59.999Z`) : (date ? new Date(`${date}T23:59:59.999Z`) : new Date(`${new Date().toISOString().split('T')[0]}T23:59:59.999Z`)),
+          },
+        }
         : {}),
     };
 
@@ -285,7 +285,7 @@ export const createEyeExamination = async (req, res, next) => {
         plan: plan || null,
         followUpDate: followUpDate ? new Date(followUpDate) : null,
         nextVisitReason: nextVisitReason || null,
-        stage: req.user.role === 'SUPERADMIN' || (await prisma.rolePermission.findFirst({
+        stage: (req.user.role === 'SUPERADMIN' || req.user.role === 'ADMIN') || (await prisma.rolePermission.findFirst({
           where: { roleName: req.user.role, module: 'clinical_exams' }
         }))?.canCreate
           ? (req.body.stage || 'PRELIMINARY')
@@ -366,12 +366,12 @@ export const updateEyeExamination = async (req, res, next) => {
     } = req.body;
 
     let newStage = stage || existing.stage;
-    
-    const permissions = req.user.role === 'SUPERADMIN' ? [] : await prisma.rolePermission.findMany({
+
+    const permissions = (req.user.role === 'SUPERADMIN' || req.user.role === 'ADMIN') ? [] : await prisma.rolePermission.findMany({
       where: { roleName: req.user.role }
     });
     const clinicalPerm = permissions.find(p => p.module === 'clinical_exams');
-    const hasClinicalUpdate = req.user.role === 'SUPERADMIN' || (clinicalPerm && clinicalPerm.canUpdate);
+    const hasClinicalUpdate = (req.user.role === 'SUPERADMIN' || req.user.role === 'ADMIN') || (clinicalPerm && clinicalPerm.canUpdate);
 
     if (!hasClinicalUpdate) {
       newStage = 'PRELIMINARY';
@@ -380,16 +380,16 @@ export const updateEyeExamination = async (req, res, next) => {
       // 1. From PRELIMINARY to CLINICAL: When tech saves preliminary data
       const isPreliminaryUpdate = vaScale || vaUnaidedOD || vaBcvaOD || iopOD;
       if (newStage === 'PRELIMINARY' && isPreliminaryUpdate && !req.body.isPartialSave) {
-          newStage = 'CLINICAL';
+        newStage = 'CLINICAL';
       }
 
       // 2. From CLINICAL to COMPLETED: When doctor saves diagnosis and plan
       // If diagnosis and plan are present, or if stage is explicitly set to COMPLETED
       const hasDiagnosis = diagnosis && diagnosis.length > 0;
       const hasPlan = plan && plan.length > 0;
-      
+
       if (stage === 'COMPLETED' || (hasDiagnosis && hasPlan)) {
-          newStage = 'COMPLETED';
+        newStage = 'COMPLETED';
       }
     }
 

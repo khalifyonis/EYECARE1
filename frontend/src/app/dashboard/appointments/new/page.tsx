@@ -171,8 +171,8 @@ function ScrollableColumn({
                         key={opt}
                         onClick={() => onChange(opt)}
                         className={`flex h-10 w-full shrink-0 items-center justify-center text-base font-bold transition-all snap-center select-none ${value === opt
-                                ? 'text-[#0EA5E9] scale-110'
-                                : 'text-slate-300 hover:text-slate-400'
+                            ? 'text-[#0EA5E9] scale-110'
+                            : 'text-slate-300 hover:text-slate-400'
                             }`}
                     >
                         {opt}
@@ -809,7 +809,7 @@ export default function NewAppointmentPage() {
             const totalAmount = parseFloat(billingAmount) || 0
             const discountAmount = parseFloat(billingDiscount) || 0
 
-            await api.post('/appointments', {
+            const res = await api.post('/appointments', {
                 patientId,
                 doctorId,
                 appointmentDate: dateTime.toISOString(),
@@ -828,8 +828,17 @@ export default function NewAppointmentPage() {
                 emergencyContactPhone: isEmergencyMissing ? emergencyPhone : undefined,
                 emergencyContactRelationship: isEmergencyMissing ? emergencyRelation : undefined,
             })
+
+            // Extract the created appointment ID from the response to redirect to the printable view
+            const newApptId = res.data?.id || res.data?.data?.id
+
             toast.success('Appointment scheduled successfully!')
-            router.push('/dashboard/appointments')
+
+            if (newApptId) {
+                router.push(`/dashboard/appointments/${newApptId}?print=true`)
+            } else {
+                router.push('/dashboard/appointments')
+            }
         } catch (error) {
             toast.error(getApiErrorMessage(error, 'Failed to create appointment'))
         } finally {
@@ -1246,12 +1255,12 @@ export default function NewAppointmentPage() {
 
                                     <div className="space-y-2">
                                         <Label className="text-sm font-semibold text-slate-800">
-                                            Location
+                                            Room
                                         </Label>
                                         <div className="relative">
                                             <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 pointer-events-none" />
                                             <Input
-                                                placeholder="e.g., Room 101, Building A"
+                                                placeholder="e.g., Room 101"
                                                 value={location}
                                                 onChange={(e) => setLocation(e.target.value)}
                                                 className="h-11 pl-10 text-[15px] rounded-lg border-slate-200"

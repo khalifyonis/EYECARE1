@@ -63,6 +63,11 @@ export const sendOnboardingEmail = async (recipientEmail, fullName, username, te
     };
 
     try {
+        if (!process.env.EMAIL_USER) {
+            console.log(`⚠️ SMTP credentials missing. Bypassing email send. User ${username} was created successfully with password: ${temporaryPassword}`);
+            return { success: true, messageId: 'mock-local-development' };
+        }
+
         const info = await transporter.sendMail(mailOptions);
         console.log(`✅ Onboarding email sent to ${recipientEmail}: ${info.messageId}`);
         return { success: true, messageId: info.messageId };

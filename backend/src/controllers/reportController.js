@@ -155,7 +155,7 @@ export const getClinicalReport = async (req, res, next) => {
             const dateStr = s.date.toISOString().slice(0, 10);
             trendByDate[dateStr] = trendByDate[dateStr] || { name: dateStr, exams: 0, surgeries: 0 };
             trendByDate[dateStr].surgeries++;
-            
+
             surgeryTypes[s.surgeryType] = (surgeryTypes[s.surgeryType] || 0) + 1;
         }
 
@@ -231,7 +231,7 @@ export const getAppointmentReport = async (req, res, next) => {
 
         let completed = 0;
         let cancelled = 0;
-        
+
         const trendByDate = {};
         const statusDist = {};
 
@@ -273,7 +273,7 @@ export const getPatientReport = async (req, res, next) => {
 
         const allPatients = await prisma.patient.findMany({
             where: { ...branchFilter, ...genderWhere },
-            select: { id: true, createdAt: true, gender: true, dateOfBirth: true }
+            select: { id: true, createdAt: true, gender: true, dateOfBirth: true, address: true, city: true }
         });
 
         const newPatients = await prisma.patient.findMany({
@@ -285,20 +285,44 @@ export const getPatientReport = async (req, res, next) => {
             totalPatients: allPatients.length,
             newInPeriod: newPatients.length,
             genderDist: '0M / 0F',
-            avgAge: 0
+            avgAge: 0,
+            topDistrict: 'N/A'
         };
 
         let male = 0;
         let female = 0;
         let totalAge = 0;
         let ageCount = 0;
-        
+
         const ageDist = { '0-18': 0, '19-30': 0, '31-45': 0, '46-60': 0, '60+': 0 };
+        const districtCount = {};
+
+        // Normalize district names so "Hodan District, Road 3, Mogadishu" and
+        // "Hodan District, Mogadishu" both map to "Hodan".
+        function normalizeDistrict(address) {
+            if (!address) return null;
+            const raw = address.trim();
+            const lower = raw.toLowerCase();
+            if (!raw || lower === 'unknown' || lower.includes('demo') || lower.includes('test')) return null;
+
+            // Try to extract "X District" pattern
+            const distMatch = raw.match(/(\w[\w\s]*?)\s*District/i);
+            if (distMatch) return distMatch[1].trim();
+
+            // Fall back to first comma-separated segment
+            const firstPart = raw.split(',')[0].trim();
+            return firstPart || null;
+        }
 
         for (const p of allPatients) {
             const g = (p.gender || '').toUpperCase();
             if (g === 'MALE') male++;
             else if (g === 'FEMALE') female++;
+
+            const district = normalizeDistrict(p.address || p.city || '');
+            if (district) {
+                districtCount[district] = (districtCount[district] || 0) + 1;
+            }
 
             if (p.dateOfBirth) {
                 const ageDifMs = Date.now() - new Date(p.dateOfBirth).getTime();
@@ -318,6 +342,14 @@ export const getPatientReport = async (req, res, next) => {
         kpis.genderDist = `${male}M / ${female}F`;
         kpis.avgAge = ageCount > 0 ? Math.round(totalAge / ageCount) : 0;
 
+        const sortedDistricts = Object.entries(districtCount).sort((a, b) => b[1] - a[1]);
+        const topDist = sortedDistricts.find(d => d[0] !== 'Unknown');
+        if (topDist) {
+            kpis.topDistrict = `${topDist[0]} (${topDist[1]})`;
+        } else if (sortedDistricts.length > 0) {
+            kpis.topDistrict = `Unknown (${sortedDistricts[0][1]})`;
+        }
+
         const trendByDate = {};
         for (const p of newPatients) {
             const dateStr = p.createdAt.toISOString().slice(0, 10);
@@ -326,8 +358,9 @@ export const getPatientReport = async (req, res, next) => {
 
         const chart1 = Object.keys(trendByDate).sort().map(date => ({ name: date, value: trendByDate[date] }));
         const chart2 = Object.keys(ageDist).map(group => ({ name: group, value: ageDist[group] }));
+        const chart3 = sortedDistricts.slice(0, 10).map(d => ({ name: d[0], value: d[1] }));
 
-        res.json({ kpis, chart1, chart2, tableData: newPatients });
+        res.json({ kpis, chart1, chart2, chart3, tableData: newPatients });
     } catch (error) {
         next(error);
     }
@@ -359,7 +392,7 @@ export const getInventoryReport = async (req, res, next) => {
             const stock = p.stockQuantity || 0;
             const price = Number(p.sellingPrice) || 0;
             const rl = p.reorderLevel || 0;
-            
+
             kpis.stockValue += stock * price;
             categoryValue.Pharmacy += stock * price;
 

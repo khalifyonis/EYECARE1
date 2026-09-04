@@ -103,6 +103,20 @@ export const createAppointment = async (req, res, next) => {
             return res.status(409).json({ message: 'Patient already has an appointment on this date.' });
         }
 
+        const doctorProfile = await prisma.doctor.findUnique({ where: { id: doctorId } });
+        if (doctorProfile && doctorProfile.dailyPatientLimit) {
+            const currentAppointmentsCount = await prisma.appointment.count({
+                where: {
+                    doctorId,
+                    appointmentDate: { gte: dayStart, lte: dayEnd },
+                    NOT: { status: 'CANCELLED' }
+                }
+            });
+            if (currentAppointmentsCount >= doctorProfile.dailyPatientLimit) {
+                return res.status(400).json({ message: `Doctor's daily patient limit (${doctorProfile.dailyPatientLimit}) has been reached for this date.` });
+            }
+        }
+
         const existingTimeSlot = await prisma.appointment.findFirst({
             where: {
                 doctorId,
@@ -128,10 +142,10 @@ export const createAppointment = async (req, res, next) => {
                 if ((type || 'consultation').toLowerCase() === 'surgery') {
                     const patient = await prisma.patient.findUnique({ where: { id: patientId } });
                     if (!patient) return res.status(404).json({ message: 'Patient not found' });
-                    
+
                     const hasEmergencyInDb = patient.emergencyContactName && patient.emergencyContactPhone;
                     const hasEmergencyInRequest = emergencyContactName && emergencyContactPhone;
-                    
+
                     if (!hasEmergencyInDb && !hasEmergencyInRequest) {
                         return res.status(400).json({ message: 'Emergency contact required for surgery appointments.' });
                     }
@@ -140,8 +154,8 @@ export const createAppointment = async (req, res, next) => {
                 // Determine initial status based on date
                 const now = new Date();
                 const isToday = parsedDate.getFullYear() === now.getFullYear() &&
-                               parsedDate.getMonth() === now.getMonth() &&
-                               parsedDate.getDate() === now.getDate();
+                    parsedDate.getMonth() === now.getMonth() &&
+                    parsedDate.getDate() === now.getDate();
                 const initialStatus = isToday ? 'PENDING' : 'SCHEDULED';
 
                 // Create appointment and (if surgery) a billing record atomically
@@ -231,7 +245,7 @@ export const createAppointment = async (req, res, next) => {
             entityType: ENTITY_TYPES.APPOINTMENT,
             entityId: appointment.id,
             details: `Created appointment ${appointment.bookingNumber || appointment.id}`,
-        }).catch(() => {});
+        }).catch(() => { });
         logAudit(req, {
             branchId: activeBranchId,
             action: AUDIT_ACTIONS.CREATE,
@@ -240,7 +254,7 @@ export const createAppointment = async (req, res, next) => {
             entityId: appointment.id,
             summary: `Created appointment`,
             after: sanitizeForAudit(appointment),
-        }).catch(() => {});
+        }).catch(() => { });
 
         res.status(201).json(appointment);
     } catch (error) {
@@ -455,6 +469,21 @@ export const updateAppointment = async (req, res, next) => {
             if (existingTimeSlot) {
                 return res.status(409).json({ message: 'This time slot is already booked for the selected doctor.' });
             }
+
+            const doctorProfile = await prisma.doctor.findUnique({ where: { id: nextDoctorId } });
+            if (doctorProfile && doctorProfile.dailyPatientLimit) {
+                const currentAppointmentsCount = await prisma.appointment.count({
+                    where: {
+                        id: { not: existing.id },
+                        doctorId: nextDoctorId,
+                        appointmentDate: { gte: dayStart, lte: dayEnd },
+                        NOT: { status: 'CANCELLED' }
+                    }
+                });
+                if (currentAppointmentsCount >= doctorProfile.dailyPatientLimit) {
+                    return res.status(400).json({ message: `Doctor's daily patient limit (${doctorProfile.dailyPatientLimit}) has been reached for this date.` });
+                }
+            }
         }
         if (status !== undefined) data.status = status;
         if (amount !== undefined) data.amount = amount;
@@ -539,7 +568,7 @@ export const updateAppointment = async (req, res, next) => {
             entityType: ENTITY_TYPES.APPOINTMENT,
             entityId: appointment.id,
             details: `Updated appointment ${appointment.bookingNumber || appointment.id}`,
-        }).catch(() => {});
+        }).catch(() => { });
         logAudit(req, {
             branchId: appointment.branchId,
             action: AUDIT_ACTIONS.UPDATE,
@@ -549,7 +578,7 @@ export const updateAppointment = async (req, res, next) => {
             summary: `Updated appointment`,
             before: sanitizeForAudit(existing),
             after: sanitizeForAudit(appointment),
-        }).catch(() => {});
+        }).catch(() => { });
 
         res.status(200).json(appointment);
     } catch (error) {
@@ -573,7 +602,7 @@ export const deleteAppointment = async (req, res, next) => {
             entityType: ENTITY_TYPES.APPOINTMENT,
             entityId: existing.id,
             details: `Deleted appointment ${existing.bookingNumber || existing.id}`,
-        }).catch(() => {});
+        }).catch(() => { });
         logAudit(req, {
             branchId: existing.branchId,
             action: AUDIT_ACTIONS.DELETE,
@@ -582,7 +611,7 @@ export const deleteAppointment = async (req, res, next) => {
             entityId: existing.id,
             summary: `Deleted appointment`,
             before: sanitizeForAudit(existing),
-        }).catch(() => {});
+        }).catch(() => { });
 
         await prisma.appointment.delete({ where: { id: req.params.id } });
         emitEvent('appointment:deleted', { id: req.params.id }, existing.branchId);

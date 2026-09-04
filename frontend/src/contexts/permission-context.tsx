@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { Permission, can, isPathAllowedForRole } from '@/lib/permissions'
-import { readStoredUser, StoredUser } from '@/lib/auth'
+import { readStoredUser, StoredUser, resolveRoleName } from '@/lib/auth'
 
 interface PermissionContextType {
     permissions: Permission[] | null
@@ -50,8 +50,10 @@ export function PermissionProvider({ children }: { children: React.ReactNode }) 
     }, [loadPermissions])
 
     const checkPermission = useCallback((module: string, action: 'canRead' | 'canCreate' | 'canUpdate' | 'canDelete' = 'canRead') => {
+        const roleName = resolveRoleName(user).toUpperCase()
+        if (roleName === 'SUPERADMIN' || roleName === 'ADMIN') return true
         return can(permissions, module, action)
-    }, [permissions])
+    }, [user, permissions])
 
     const checkPath = useCallback((path: string) => {
         return isPathAllowedForRole(path, user, permissions)

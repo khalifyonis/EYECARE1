@@ -19,8 +19,8 @@ export default function NewEyeExamPage() {
 
   const stage: 'PRELIMINARY' | 'CLINICAL' | 'ALL' =
     stageParam === 'PRELIMINARY' ? 'PRELIMINARY' :
-    stageParam === 'CLINICAL' ? 'CLINICAL' :
-    'ALL';
+      stageParam === 'CLINICAL' ? 'CLINICAL' :
+        'ALL';
 
   const initialData = patientId ? {
     patientId,
@@ -30,8 +30,8 @@ export default function NewEyeExamPage() {
   // Determine cancel/back URL based on which stage we came from
   const cancelHref =
     stage === 'PRELIMINARY' ? '/dashboard/eye-examinations/preliminary' :
-    stage === 'CLINICAL' ? '/dashboard/eye-examinations/clinical' :
-    '/dashboard/eye-examinations';
+      stage === 'CLINICAL' ? '/dashboard/eye-examinations/clinical' :
+        '/dashboard/eye-examinations';
 
   const handleSubmit = async (payload: EyeExamFormSubmitPayload) => {
     setSubmitting(true);
@@ -45,7 +45,6 @@ export default function NewEyeExamPage() {
 
       const res = await api.post('/eye-examinations', finalPayload);
       toast.success('Examination created successfully');
-      router.push(`/dashboard/eye-examinations/${res.data.id}`);
       return res.data;
     } catch (error: unknown) {
       const message =
@@ -53,8 +52,22 @@ export default function NewEyeExamPage() {
           ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
           : undefined;
       toast.error(message || 'Failed to create examination');
+      throw error;
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const handleSuccess = (examId: string, options?: { opticalPrescriptionId?: string; hasMedicine?: boolean }) => {
+    if (stage === 'PRELIMINARY' && options?.opticalPrescriptionId) {
+      router.push(`/dashboard/prescription/optical/${options.opticalPrescriptionId}?print=true`);
+    } else if (stage === 'CLINICAL' && options?.hasMedicine) {
+      router.push(`/dashboard/eye-examinations/${examId}?print=true`);
+    } else {
+      const returnPage = stage === 'CLINICAL' ? '/dashboard/eye-examinations/clinical'
+        : stage === 'PRELIMINARY' ? '/dashboard/eye-examinations/preliminary-exam'
+          : `/dashboard/eye-examinations/${examId}?print=true`;
+      router.push(returnPage);
     }
   };
 
@@ -65,6 +78,7 @@ export default function NewEyeExamPage() {
           mode="create"
           submitting={submitting}
           onSubmit={handleSubmit}
+          onSuccess={handleSuccess}
           cancelHref={cancelHref}
           stage={stage}
           initialData={initialData}

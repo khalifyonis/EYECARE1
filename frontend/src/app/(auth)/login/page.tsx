@@ -72,7 +72,7 @@ export default function LoginPage() {
 
     const completeLogin = async (token: string, user: StoredUser, branch: BranchSummary | null) => {
         try {
-            // Temporarily store token so next API request is authenticated
+            // Persist session immediately
             if (typeof window !== 'undefined') {
                 localStorage.setItem('token', token);
                 if (branch?.id) {
@@ -80,29 +80,22 @@ export default function LoginPage() {
                 }
             }
 
-            // Fetch dynamic permissions for the user's role
-            let permissions = [];
-            try {
-                const permsResponse = await api.get('/permissions/mine', {
-                    headers: { Authorization: `Bearer ${token}` }
-                });
-                permissions = permsResponse.data;
-            } catch (err) {
-                console.error('Failed to load user permissions:', err);
-            }
-
             const storedUser = persistSession(token, user, branch);
-
-            // Store permissions list in localStorage
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('permissions', JSON.stringify(permissions));
-            }
-
             const targetPath = getDefaultDashboardPath(resolveRoleName(storedUser));
+
+            // Fire permissions fetch non-blocking — dashboard layout picks it up
+            api.get('/permissions/mine', { headers: { Authorization: `Bearer ${token}` } })
+                .then(permsRes => {
+                    if (typeof window !== 'undefined') {
+                        localStorage.setItem('permissions', JSON.stringify(permsRes.data));
+                    }
+                })
+                .catch(err => console.error('Failed to prefetch permissions:', err));
 
             setShowBranchSelector(false);
             setTempAuthData(null);
 
+            // Redirect immediately — don't wait for permissions
             router.replace(targetPath);
 
             // Fallback for rare cases where client routing can stall under modal overlays.
@@ -187,7 +180,7 @@ export default function LoginPage() {
                     </div>
 
                     {/* Form */}
-                    <form onSubmit={handleLogin} className="space-y-5">
+                    <form onSubmit={handleLogin} className="space-y-5" suppressHydrationWarning>
 
                         {/* Username */}
                         <div className="space-y-1.5">
@@ -236,6 +229,7 @@ export default function LoginPage() {
                                 />
                                 <button
                                     type="button"
+                                    suppressHydrationWarning
                                     onClick={() => setShowPassword(!showPassword)}
                                     className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-[#0EA5E9] transition-colors"
                                 >
@@ -278,6 +272,8 @@ export default function LoginPage() {
                             )}
                         </Button>
                     </form>
+
+
 
                 </div>
             </div>

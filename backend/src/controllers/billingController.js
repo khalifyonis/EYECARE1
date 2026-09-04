@@ -354,6 +354,7 @@ export const createBilling = async (req, res, next) => {
         const billing = await prisma.$transaction(async (tx) => {
             const invoiceNumber = await generateInvoiceNumber();
             const normalizedStatus = status === 'PARTIAL' ? 'PARTIALLY_PAID' : status;
+            const isPaid = (normalizedStatus === 'PAID' || normalizedStatus === 'PARTIALLY_PAID');
 
             const created = await tx.billing.create({
                 data: {
@@ -418,21 +419,23 @@ export const createBilling = async (req, res, next) => {
                             },
                         });
 
-                        await tx.pharmacyStockTransaction.create({
-                            data: {
-                                pharmacyItemId: rawItemId,
-                                branchId: activeBranchId,
-                                transactionType: 'OUT',
-                                quantity,
-                                unitPrice: safeUnit,
-                                billingId: created.id,
-                                performedById: req.user.id,
-                            },
-                        });
-                        await tx.pharmacyItem.update({
-                            where: { id: rawItemId },
-                            data: { stockQuantity: { decrement: quantity } },
-                        });
+                        if (isPaid) {
+                            await tx.pharmacyStockTransaction.create({
+                                data: {
+                                    pharmacyItemId: rawItemId,
+                                    branchId: activeBranchId,
+                                    transactionType: 'OUT',
+                                    quantity,
+                                    unitPrice: safeUnit,
+                                    billingId: created.id,
+                                    performedById: req.user.id,
+                                },
+                            });
+                            await tx.pharmacyItem.update({
+                                where: { id: rawItemId },
+                                data: { stockQuantity: { decrement: quantity } },
+                            });
+                        }
                         continue;
                     }
 
@@ -467,21 +470,23 @@ export const createBilling = async (req, res, next) => {
                             },
                         });
 
-                        await tx.opticalStockTransaction.create({
-                            data: {
-                                opticalItemId: rawItemId,
-                                branchId: activeBranchId,
-                                transactionType: 'OUT',
-                                quantity,
-                                unitPrice: safeUnit,
-                                billingId: created.id,
-                                performedById: req.user.id,
-                            },
-                        });
-                        await tx.opticalItem.update({
-                            where: { id: rawItemId },
-                            data: { stockQuantity: { decrement: quantity } },
-                        });
+                        if (isPaid) {
+                            await tx.opticalStockTransaction.create({
+                                data: {
+                                    opticalItemId: rawItemId,
+                                    branchId: activeBranchId,
+                                    transactionType: 'OUT',
+                                    quantity,
+                                    unitPrice: safeUnit,
+                                    billingId: created.id,
+                                    performedById: req.user.id,
+                                },
+                            });
+                            await tx.opticalItem.update({
+                                where: { id: rawItemId },
+                                data: { stockQuantity: { decrement: quantity } },
+                            });
+                        }
                         continue;
                     }
 
@@ -519,17 +524,17 @@ export const createBilling = async (req, res, next) => {
                 await tx.prescription.update({
                     where: { id: prescriptionId },
                     data: { status: 'DISPENSED', dispensedAt: new Date() }
-                }).catch(() => {}); // Fallback if record doesn't exist or already updated
+                }).catch(() => { }); // Fallback if record doesn't exist or already updated
             }
             if (opticalPrescriptionId) {
                 await tx.opticalPrescription.update({
                     where: { id: opticalPrescriptionId },
                     data: { status: 'DISPENSED', dispensedAt: new Date() }
-                }).catch(() => {});
+                }).catch(() => { });
             }
 
             return hydrated;
-        });
+        }, { maxWait: 15000, timeout: 30000 });
 
         if (!hasLineItems && (serviceType === 'PHARMACY' || serviceType === 'OPTICAL') && prescriptionId && billing.prescription) {
             const prescription = await prisma.prescription.findFirst({
@@ -555,7 +560,7 @@ export const createBilling = async (req, res, next) => {
             entityType: ENTITY_TYPES.BILLING,
             entityId: billing.id,
             details: `Created ${serviceType} invoice - ${String(billing.finalAmount)}`,
-        }).catch(() => {});
+        }).catch(() => { });
         logAudit(req, {
             branchId: activeBranchId,
             action: AUDIT_ACTIONS.CREATE,
@@ -564,7 +569,7 @@ export const createBilling = async (req, res, next) => {
             entityId: billing.id,
             summary: `Created billing record`,
             after: sanitizeForAudit({ serviceType, finalAmount: billing.finalAmount, status: billing.status }),
-        }).catch(() => {});
+        }).catch(() => { });
 
         emitEvent('billing:created', billing, activeBranchId);
         // Also notify inventory because billing often deducts stock
@@ -613,11 +618,17 @@ export const updateBilling = async (req, res, next) => {
             if (dueDate !== undefined) data.dueDate = dueDate ? new Date(dueDate) : null;
             if (notes !== undefined) data.notes = notes || null;
 
-            if (hasLineItems) {
-                for (const li of existing.lineItems || []) {
+            const newStatus = data.status || existing.status;
+            const wasPreviouslyPaid = existing.status === 'PAID' || existing.status === 'PARTIALLY_PAID';
+            const isNowPaid = newStatus === 'PAID' || newStatus === 'PARTIALLY_PAID';
+
+            // Helper to restore items
+            const restoreStock = async (itemsList) => {
+                for (const li of itemsList) {
                     const type = String(li.itemType || '').toUpperCase();
                     const itemId = String(li.itemId || '');
                     if (!itemId || itemId.startsWith('MANUAL-')) continue;
+
                     if (type === 'PHARMACY') {
                         const item = await tx.pharmacyItem.findUnique({ where: { id: itemId } });
                         if (item) {
@@ -656,10 +667,62 @@ export const updateBilling = async (req, res, next) => {
                         }
                     }
                 }
+            };
+
+            // Helper to deduct items
+            const deductStock = async (itemsList) => {
+                for (const li of itemsList) {
+                    const type = String(li.itemType || '').toUpperCase();
+                    const itemId = String(li.itemId || '');
+                    if (!itemId || itemId.startsWith('MANUAL-')) continue;
+
+                    if (type === 'PHARMACY') {
+                        await tx.pharmacyStockTransaction.create({
+                            data: {
+                                pharmacyItemId: itemId,
+                                branchId: existing.branchId,
+                                transactionType: 'OUT',
+                                quantity: li.quantity,
+                                unitPrice: Number(li.unitPrice) || 0,
+                                billingId: existing.id,
+                                performedById: req.user.id,
+                            },
+                        });
+                        await tx.pharmacyItem.update({
+                            where: { id: itemId },
+                            data: { stockQuantity: { decrement: li.quantity } },
+                        });
+                    } else if (type === 'OPTICAL') {
+                        await tx.opticalStockTransaction.create({
+                            data: {
+                                opticalItemId: itemId,
+                                branchId: existing.branchId,
+                                transactionType: 'OUT',
+                                quantity: li.quantity,
+                                unitPrice: Number(li.unitPrice) || 0,
+                                billingId: existing.id,
+                                performedById: req.user.id,
+                            },
+                        });
+                        await tx.opticalItem.update({
+                            where: { id: itemId },
+                            data: { stockQuantity: { decrement: li.quantity } },
+                        });
+                    }
+                }
+            };
+
+            if (hasLineItems) {
+                // User provided new line items, we must rewrite them
+                if (wasPreviouslyPaid) {
+                    await restoreStock(existing.lineItems || []);
+                }
 
                 await tx.billingLineItem.deleteMany({ where: { billingId: existing.id } });
 
                 let computedTotal = 0;
+                let finalLines = [];
+
                 for (let idx = 0; idx < lineItems.length; idx += 1) {
                     const li = lineItems[idx] || {};
                     const lineType = String(li?.itemType || serviceType || existing.serviceType).toUpperCase();
@@ -669,123 +732,47 @@ export const updateBilling = async (req, res, next) => {
                     const rawItemId = li?.itemId ? String(li.itemId).trim() : '';
                     const manualId = `MANUAL-${idx + 1}`;
 
-                    if (lineType === 'PHARMACY' && rawItemId) {
-                        const item = await tx.pharmacyItem.findUnique({ where: { id: rawItemId } });
-                        if (!item) {
-                            const err = new Error('Pharmacy item not found');
-                            err.statusCode = 400;
-                            throw err;
+                    let unit = Number(li?.unitPrice) || 0;
+                    if (rawItemId && !li.unitPrice && li.unitPrice !== 0) {
+                        if (lineType === 'PHARMACY') {
+                            const item = await tx.pharmacyItem.findUnique({ where: { id: rawItemId } });
+                            if (item) unit = Number(item.sellingPrice) || 0;
+                        } else if (lineType === 'OPTICAL') {
+                            const item = await tx.opticalItem.findUnique({ where: { id: rawItemId } });
+                            if (item) unit = Number(item.sellingPrice) || 0;
                         }
-                        if (item.stockQuantity < quantity) {
-                            const err = new Error(`Insufficient stock: only ${item.stockQuantity} available`);
-                            err.statusCode = 400;
-                            throw err;
-                        }
-
-                        const unit = li?.unitPrice !== undefined && li?.unitPrice !== null && li?.unitPrice !== ''
-                            ? Number(li.unitPrice)
-                            : Number(item.sellingPrice);
-                        const safeUnit = Number.isFinite(unit) ? unit : 0;
-                        const lineTotal = Math.max(0, quantity * safeUnit);
-                        computedTotal += lineTotal;
-
-                        await tx.billingLineItem.create({
-                            data: {
-                                billingId: existing.id,
-                                itemType: 'PHARMACY',
-                                itemId: rawItemId,
-                                description: li?.description || item.itemName,
-                                quantity,
-                                unitPrice: safeUnit,
-                                lineTotal,
-                            },
-                        });
-
-                        await tx.pharmacyStockTransaction.create({
-                            data: {
-                                pharmacyItemId: rawItemId,
-                                branchId: existing.branchId,
-                                transactionType: 'OUT',
-                                quantity,
-                                unitPrice: safeUnit,
-                                billingId: existing.id,
-                                performedById: req.user.id,
-                            },
-                        });
-                        await tx.pharmacyItem.update({
-                            where: { id: rawItemId },
-                            data: { stockQuantity: { decrement: quantity } },
-                        });
-                        continue;
                     }
 
-                    if (lineType === 'OPTICAL' && rawItemId) {
-                        const item = await tx.opticalItem.findUnique({ where: { id: rawItemId } });
-                        if (!item) {
-                            const err = new Error('Optical item not found');
-                            err.statusCode = 400;
-                            throw err;
-                        }
-                        if (item.stockQuantity < quantity) {
-                            const err = new Error(`Insufficient stock: only ${item.stockQuantity} available`);
-                            err.statusCode = 400;
-                            throw err;
-                        }
-
-                        const unit = li?.unitPrice !== undefined && li?.unitPrice !== null && li?.unitPrice !== ''
-                            ? Number(li.unitPrice)
-                            : Number(item.sellingPrice);
-                        const safeUnit = Number.isFinite(unit) ? unit : 0;
-                        const lineTotal = Math.max(0, quantity * safeUnit);
-                        computedTotal += lineTotal;
-
-                        await tx.billingLineItem.create({
-                            data: {
-                                billingId: existing.id,
-                                itemType: 'OPTICAL',
-                                itemId: rawItemId,
-                                description: li?.description || item.itemName,
-                                quantity,
-                                unitPrice: safeUnit,
-                                lineTotal,
-                            },
-                        });
-
-                        await tx.opticalStockTransaction.create({
-                            data: {
-                                opticalItemId: rawItemId,
-                                branchId: existing.branchId,
-                                transactionType: 'OUT',
-                                quantity,
-                                unitPrice: safeUnit,
-                                billingId: existing.id,
-                                performedById: req.user.id,
-                            },
-                        });
-                        await tx.opticalItem.update({
-                            where: { id: rawItemId },
-                            data: { stockQuantity: { decrement: quantity } },
-                        });
-                        continue;
-                    }
-
-                    const unit = Number(li?.unitPrice) || 0;
-                    const lineTotal = Math.max(0, quantity * unit);
+                    const safeUnit = Number.isFinite(unit) ? unit : 0;
+                    const lineTotal = Math.max(0, quantity * safeUnit);
                     computedTotal += lineTotal;
-                    await tx.billingLineItem.create({
+
+                    const createdLi = await tx.billingLineItem.create({
                         data: {
                             billingId: existing.id,
-                            itemType: lineType || String(serviceType || existing.serviceType),
+                            itemType: lineType,
                             itemId: rawItemId || manualId,
                             description: li?.description || null,
                             quantity,
-                            unitPrice: unit,
+                            unitPrice: safeUnit,
                             lineTotal,
                         },
                     });
+                    finalLines.push(createdLi);
                 }
 
                 data.totalAmount = computedTotal;
+
+                if (isNowPaid) {
+                    await deductStock(finalLines);
+                }
+            } else {
+                // User did not provide new line items, only updating details (like status)
+                if (wasPreviouslyPaid && !isNowPaid) {
+                    await restoreStock(existing.lineItems || []);
+                } else if (!wasPreviouslyPaid && isNowPaid) {
+                    await deductStock(existing.lineItems || []);
+                }
             }
 
             if (data.totalAmount !== undefined || data.discount !== undefined) {
@@ -807,7 +794,7 @@ export const updateBilling = async (req, res, next) => {
                     createdBy: { select: { id: true, fullName: true } },
                 },
             });
-        });
+        }, { maxWait: 15000, timeout: 30000 });
 
         emitEvent('billing:updated', billing, billing.branchId);
         emitEvent('inventory:updated', null, billing.branchId);
@@ -819,7 +806,7 @@ export const updateBilling = async (req, res, next) => {
             entityType: ENTITY_TYPES.BILLING,
             entityId: billing.id,
             details: `Updated billing - ${billing.serviceType}`,
-        }).catch(() => {});
+        }).catch(() => { });
         logAudit(req, {
             branchId: billing.branchId,
             action: AUDIT_ACTIONS.UPDATE,
@@ -829,7 +816,7 @@ export const updateBilling = async (req, res, next) => {
             summary: `Updated billing record`,
             before: sanitizeForAudit(existing),
             after: sanitizeForAudit(billing),
-        }).catch(() => {});
+        }).catch(() => { });
 
         res.status(200).json(billing);
     } catch (error) {
@@ -894,7 +881,7 @@ export const deleteBilling = async (req, res, next) => {
             entityType: ENTITY_TYPES.BILLING,
             entityId: existing.id,
             details: `Deleted ${existing.serviceType} - ${String(existing.finalAmount)}`,
-        }).catch(() => {});
+        }).catch(() => { });
         logAudit(req, {
             branchId: existing.branchId,
             action: AUDIT_ACTIONS.DELETE,
@@ -903,7 +890,7 @@ export const deleteBilling = async (req, res, next) => {
             entityId: existing.id,
             summary: `Deleted billing record`,
             before: sanitizeForAudit(existing),
-        }).catch(() => {});
+        }).catch(() => { });
 
         await prisma.billing.delete({ where: { id: req.params.id } });
         res.status(200).json({ message: 'Billing deleted successfully' });

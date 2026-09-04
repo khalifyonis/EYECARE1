@@ -106,7 +106,7 @@ function ScrollableColumn({
     return (
         <div className="relative h-[200px] w-14">
             <div className="absolute top-1/2 left-0 right-0 -translate-y-1/2 h-10 bg-slate-100/50 rounded-lg -z-10 pointer-events-none" />
-            <div 
+            <div
                 ref={scrollRef}
                 className="h-full overflow-y-auto flex flex-col py-20 snap-y snap-mandatory scrollbar-hide relative"
             >
@@ -114,11 +114,10 @@ function ScrollableColumn({
                     <button
                         key={opt}
                         onClick={() => onChange(opt)}
-                        className={`flex h-10 w-full shrink-0 items-center justify-center text-base font-bold transition-all snap-center select-none ${
-                            value === opt
+                        className={`flex h-10 w-full shrink-0 items-center justify-center text-base font-bold transition-all snap-center select-none ${value === opt
                                 ? 'text-[#0EA5E9] scale-110'
                                 : 'text-slate-300 hover:text-slate-400'
-                        }`}
+                            }`}
                     >
                         {opt}
                     </button>
@@ -181,7 +180,7 @@ function UnifiedTimePicker({
                 <div className="relative flex items-center justify-center bg-white px-2 py-4">
                     <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-white to-transparent pointer-events-none z-10" />
                     <div className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent pointer-events-none z-10" />
-                    
+
                     <ScrollableColumn options={HOURS} value={tempTime.hour} onChange={(v) => setTempTime(t => ({ ...t, hour: v }))} />
                     <div className="text-2xl font-black text-slate-200 pt-1 mx-1 select-none">:</div>
                     <ScrollableColumn options={MINUTES} value={tempTime.minute} onChange={(v) => setTempTime(t => ({ ...t, minute: v }))} />
@@ -249,7 +248,7 @@ export default function EditAppointmentPage() {
 
                 const dt = a?.appointmentDate ? new Date(a.appointmentDate) : null
                 const dateStr = dt && !Number.isNaN(dt.getTime()) ? dt.toISOString().slice(0, 10) : ''
-                
+
                 let h = '09'
                 let m = '00'
                 let p = 'AM'
@@ -261,7 +260,7 @@ export default function EditAppointmentPage() {
                     const roundedMin = Math.round(minVal / 5) * 5
                     const finalMin = Math.min(roundedMin, 55)
                     m = finalMin.toString().padStart(2, '0')
-                    
+
                     p = hour >= 12 ? 'PM' : 'AM'
                     hour = hour % 12
                     if (hour === 0) hour = 12
@@ -411,7 +410,7 @@ export default function EditAppointmentPage() {
                                         <SelectContent className="rounded-xl">
                                             {doctors.map((d) => (
                                                 <SelectItem key={d.id} value={d.id} className="cursor-pointer">
-                                                Dr. {d.user?.fullName || d.fullName || 'Unknown'}{d.specialization ? ` (${d.specialization})` : ''}
+                                                    Dr. {d.user?.fullName || d.fullName || 'Unknown'}{d.specialization ? ` (${d.specialization})` : ''}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -419,7 +418,7 @@ export default function EditAppointmentPage() {
                                 </div>
                                 <div className="space-y-2">
                                     <Label className="text-sm font-semibold text-slate-800">Doctor Email</Label>
-                                <Input value={selectedDoctor?.user?.email || ''} readOnly className="h-11 rounded-xl border-slate-200 bg-slate-50" />
+                                    <Input value={selectedDoctor?.user?.email || ''} readOnly className="h-11 rounded-xl border-slate-200 bg-slate-50" />
                                 </div>
                             </div>
                         </div>
@@ -491,10 +490,10 @@ export default function EditAppointmentPage() {
                                     </Select>
                                 </div>
                                 <div className="space-y-2 lg:col-span-2">
-                                    <Label className="text-sm font-semibold text-slate-800">Location</Label>
+                                    <Label className="text-sm font-semibold text-slate-800">Room</Label>
                                     <div className="relative">
                                         <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                                        <Input value={location} onChange={(e) => setLocation(e.target.value)} className="h-11 rounded-xl border-slate-200 pl-9" placeholder="Optional location..." />
+                                        <Input value={location} onChange={(e) => setLocation(e.target.value)} className="h-11 rounded-xl border-slate-200 pl-9" placeholder="Optional room..." />
                                     </div>
                                 </div>
                             </div>

@@ -120,7 +120,7 @@ async function seed() {
                 data: {
                     userId: user.id,
                     licenseNumber: license,
-                    specialization: 'Ophthalmology',
+                    specialization: 'OPHTHALMOLOGY',
                     phone: user.phone || '555-0000',
                     branchId: mainBranch.id,
                 },
@@ -133,14 +133,14 @@ async function seed() {
 
     // Pharmacy items (so prescriptions can link to real items)
     const pharmaItems = [
-        { itemName: 'Eye Drops (Timolol)',    itemType: 'Drops',    category: 'Glaucoma',          purchasePrice: 3, sellingPrice: 5 },
-        { itemName: 'Lubricant Eye Drops',    itemType: 'Drops',    category: 'Dry Eye',           purchasePrice: 2, sellingPrice: 4 },
-        { itemName: 'Ciprofloxacin Drops',    itemType: 'Drops',    category: 'Antibiotic',        purchasePrice: 4, sellingPrice: 7 },
-        { itemName: 'Prednisolone Acetate',   itemType: 'Drops',    category: 'Anti-inflammatory', purchasePrice: 5, sellingPrice: 9 },
-        { itemName: 'Erythromycin Ointment',  itemType: 'Ointment', category: 'Antibiotic',        purchasePrice: 3, sellingPrice: 6 },
-        { itemName: 'Acetazolamide 250mg',    itemType: 'Tablet',   category: 'Glaucoma',          purchasePrice: 1, sellingPrice: 3 },
-        { itemName: 'Omega-3 Softgel',        itemType: 'Capsule',  category: 'Dry Eye Support',   purchasePrice: 2, sellingPrice: 5 },
-        { itemName: 'Cetirizine Syrup',       itemType: 'Syrup',    category: 'Allergy',           purchasePrice: 2, sellingPrice: 4 },
+        { itemName: 'Eye Drops (Timolol)', itemType: 'Drops', category: 'Glaucoma', purchasePrice: 3, sellingPrice: 5 },
+        { itemName: 'Lubricant Eye Drops', itemType: 'Drops', category: 'Dry Eye', purchasePrice: 2, sellingPrice: 4 },
+        { itemName: 'Ciprofloxacin Drops', itemType: 'Drops', category: 'Antibiotic', purchasePrice: 4, sellingPrice: 7 },
+        { itemName: 'Prednisolone Acetate', itemType: 'Drops', category: 'Anti-inflammatory', purchasePrice: 5, sellingPrice: 9 },
+        { itemName: 'Erythromycin Ointment', itemType: 'Ointment', category: 'Antibiotic', purchasePrice: 3, sellingPrice: 6 },
+        { itemName: 'Acetazolamide 250mg', itemType: 'Tablet', category: 'Glaucoma', purchasePrice: 1, sellingPrice: 3 },
+        { itemName: 'Omega-3 Softgel', itemType: 'Capsule', category: 'Dry Eye Support', purchasePrice: 2, sellingPrice: 5 },
+        { itemName: 'Cetirizine Syrup', itemType: 'Syrup', category: 'Allergy', purchasePrice: 2, sellingPrice: 4 },
     ];
     const createdPharmaItems = [];
     for (const pi of pharmaItems) {
@@ -545,51 +545,51 @@ async function seed() {
                 // no-op
             } else {
 
-            const base = new Date();
-            base.setHours(9, 0, 0, 0);
+                const base = new Date();
+                base.setHours(9, 0, 0, 0);
 
-            const types = [
-                { surgeryType: 'Cataract Surgery', procedure: 'Phacoemulsification + IOL', anesthesiaType: 'Topical' },
-                { surgeryType: 'Refractive Surgery', procedure: 'LASIK', anesthesiaType: 'Topical' },
-                { surgeryType: 'Refractive Surgery', procedure: 'PRK', anesthesiaType: 'Topical' },
-                { surgeryType: 'Retinal Surgery', procedure: 'Vitrectomy', anesthesiaType: 'General' },
-                { surgeryType: 'Retinal Surgery', procedure: 'Retinal Detachment Repair', anesthesiaType: 'General' },
-                { surgeryType: 'Cataract Surgery', procedure: 'ECCE + IOL', anesthesiaType: 'Topical' },
-            ];
+                const types = [
+                    { surgeryType: 'Cataract Surgery', procedure: 'Phacoemulsification + IOL', anesthesiaType: 'Topical' },
+                    { surgeryType: 'Refractive Surgery', procedure: 'LASIK', anesthesiaType: 'Topical' },
+                    { surgeryType: 'Refractive Surgery', procedure: 'PRK', anesthesiaType: 'Topical' },
+                    { surgeryType: 'Retinal Surgery', procedure: 'Vitrectomy', anesthesiaType: 'General' },
+                    { surgeryType: 'Retinal Surgery', procedure: 'Retinal Detachment Repair', anesthesiaType: 'General' },
+                    { surgeryType: 'Cataract Surgery', procedure: 'ECCE + IOL', anesthesiaType: 'Topical' },
+                ];
 
-            const rows = types.slice(0, Math.min(needed, types.length)).map((t, idx) => {
-                const d = new Date(base);
-                d.setDate(d.getDate() + idx);
-                d.setHours(10 + (idx % 4), 0, 0, 0);
+                const rows = types.slice(0, Math.min(needed, types.length)).map((t, idx) => {
+                    const d = new Date(base);
+                    d.setDate(d.getDate() + idx);
+                    d.setHours(10 + (idx % 4), 0, 0, 0);
 
-                const patient = patients[idx % patients.length];
-                const surgeonId = surgeonIds[idx % surgeonIds.length];
+                    const patient = patients[idx % patients.length];
+                    const surgeonId = surgeonIds[idx % surgeonIds.length];
 
-                const status = idx === 2 ? 'completed' : 'scheduled';
-                const eye = idx % 3 === 0 ? 'OD' : idx % 3 === 1 ? 'OS' : 'BOTH';
+                    const status = idx === 2 ? 'completed' : 'scheduled';
+                    const eye = idx % 3 === 0 ? 'OD' : idx % 3 === 1 ? 'OS' : 'BOTH';
 
-                return {
-                    branchId: mainBranch.id,
-                    patientId: patient.id,
-                    eye,
-                    surgeryType: t.surgeryType,
-                    procedure: t.procedure,
-                    anesthesiaType: t.anesthesiaType,
-                    date: d,
-                    time: `${String(d.getHours()).padStart(2, '0')}:00`,
-                    operatingRoom: `OR-${(idx % 3) + 1}`,
-                    cataractDetails: t.surgeryType === 'Cataract Surgery'
-                        ? { technique: 'Phacoemulsification', iolModel: 'Alcon SN60WF', iolPower: 0, targetRefraction: 0 }
-                        : null,
-                    status,
-                    notes: 'Demo surgery',
-                    surgeonId,
-                    cost: 0,
-                };
-            });
+                    return {
+                        branchId: mainBranch.id,
+                        patientId: patient.id,
+                        eye,
+                        surgeryType: t.surgeryType,
+                        procedure: t.procedure,
+                        anesthesiaType: t.anesthesiaType,
+                        date: d,
+                        time: `${String(d.getHours()).padStart(2, '0')}:00`,
+                        operatingRoom: `OR-${(idx % 3) + 1}`,
+                        cataractDetails: t.surgeryType === 'Cataract Surgery'
+                            ? { technique: 'Phacoemulsification', iolModel: 'Alcon SN60WF', iolPower: 0, targetRefraction: 0 }
+                            : null,
+                        status,
+                        notes: 'Demo surgery',
+                        surgeonId,
+                        cost: 0,
+                    };
+                });
 
-            await prisma.surgery.createMany({ data: rows });
-            console.log(`Seeded ${rows.length} surgeries.`);
+                await prisma.surgery.createMany({ data: rows });
+                console.log(`Seeded ${rows.length} surgeries.`);
             }
         }
     }
@@ -646,6 +646,71 @@ async function seed() {
         await prisma.opticalPrescription.createMany({ data: seedRows });
         console.log(`Seeded ${seedRows.length} optical prescriptions.`);
     }
+
+    // ── Bulk Patient Seed: Mogadishu Districts ──
+    const districtPatients = [
+        { name: 'Cabdi Maxamed Xirsi', gender: 'MALE', dob: '1985-03-12', phone: '615800001', addr: 'Hodan District, Mogadishu' },
+        { name: 'Sahra Yusuf Aadan', gender: 'FEMALE', dob: '1990-07-22', phone: '615800002', addr: 'Hodan District, Mogadishu' },
+        { name: 'Maxamed Cali Faarax', gender: 'MALE', dob: '1978-11-05', phone: '615800003', addr: 'Hodan District, Mogadishu' },
+        { name: 'Faadumo Axmed Nuur', gender: 'FEMALE', dob: '1995-01-30', phone: '615800004', addr: 'Hodan District, Mogadishu' },
+        { name: 'Xasan Cabdullahi Warsame', gender: 'MALE', dob: '1982-06-18', phone: '615800005', addr: 'Hodan District, Mogadishu' },
+        { name: 'Nimco Maxamuud Jaamac', gender: 'FEMALE', dob: '2000-09-14', phone: '615800006', addr: 'Hodan District, Mogadishu' },
+        { name: 'Cali Warsame Guled', gender: 'MALE', dob: '1988-04-02', phone: '615800007', addr: 'Wadajir District, Mogadishu' },
+        { name: 'Aamina Xirsi Cabdi', gender: 'FEMALE', dob: '1992-12-25', phone: '615800008', addr: 'Wadajir District, Mogadishu' },
+        { name: 'Jaamac Maxamed Xuseen', gender: 'MALE', dob: '1975-08-09', phone: '615800009', addr: 'Wadajir District, Mogadishu' },
+        { name: 'Hodan Nuur Cusmaan', gender: 'FEMALE', dob: '1998-05-17', phone: '615800010', addr: 'Wadajir District, Mogadishu' },
+        { name: 'Yusuf Cismaan Axmed', gender: 'MALE', dob: '1980-10-28', phone: '615800011', addr: 'Wadajir District, Mogadishu' },
+        { name: 'Khadra Xasan Geelle', gender: 'FEMALE', dob: '1993-02-11', phone: '615800012', addr: 'Kaaraan District, Mogadishu' },
+        { name: 'Abshir Maxamed Diiriye', gender: 'MALE', dob: '1986-07-04', phone: '615800013', addr: 'Kaaraan District, Mogadishu' },
+        { name: 'Deeqa Cabdi Yusuf', gender: 'FEMALE', dob: '1999-11-20', phone: '615800014', addr: 'Kaaraan District, Mogadishu' },
+        { name: 'Nuur Axmed Cali', gender: 'MALE', dob: '1970-03-15', phone: '615800015', addr: 'Kaaraan District, Mogadishu' },
+        { name: 'Barwaaqo Xuseen Maxamed', gender: 'FEMALE', dob: '1997-06-08', phone: '615800016', addr: 'Yaqshid District, Mogadishu' },
+        { name: 'Cabdiraxmaan Guled Warsame', gender: 'MALE', dob: '1983-09-26', phone: '615800017', addr: 'Yaqshid District, Mogadishu' },
+        { name: 'Filsan Xasan Cabdi', gender: 'FEMALE', dob: '2001-01-03', phone: '615800018', addr: 'Yaqshid District, Mogadishu' },
+        { name: 'Guled Cabdullahi Maxamed', gender: 'MALE', dob: '1991-04-12', phone: '615800019', addr: 'Dayniile District, Mogadishu' },
+        { name: 'Sagal Nuur Axmed', gender: 'FEMALE', dob: '1994-08-30', phone: '615800020', addr: 'Dayniile District, Mogadishu' },
+        { name: 'Warsame Cali Cabdi', gender: 'MALE', dob: '1976-12-07', phone: '615800021', addr: 'Dayniile District, Mogadishu' },
+        { name: 'Ubax Maxamed Xasan', gender: 'FEMALE', dob: '2003-05-19', phone: '615800022', addr: 'Dharkenley District, Mogadishu' },
+        { name: 'Axmed Jaamac Cusmaan', gender: 'MALE', dob: '1987-10-14', phone: '615800023', addr: 'Dharkenley District, Mogadishu' },
+        { name: 'Zamzam Cabdullahi Nuur', gender: 'FEMALE', dob: '1996-02-28', phone: '615800024', addr: 'Dharkenley District, Mogadishu' },
+        { name: 'Cusmaan Xirsi Maxamed', gender: 'MALE', dob: '1979-07-21', phone: '615800025', addr: 'Hodan District, Mogadishu' },
+        { name: 'Luul Axmed Cali', gender: 'FEMALE', dob: '2002-11-09', phone: '615800026', addr: 'Wadajir District, Mogadishu' },
+        { name: 'Diiriye Cabdi Guled', gender: 'MALE', dob: '1984-01-16', phone: '615800027', addr: 'Kaaraan District, Mogadishu' },
+        { name: 'Iqra Maxamuud Xasan', gender: 'FEMALE', dob: '1998-09-03', phone: '615800028', addr: 'Yaqshid District, Mogadishu' },
+        { name: 'Xuseen Nuur Warsame', gender: 'MALE', dob: '1981-06-25', phone: '615800029', addr: 'Hodan District, Mogadishu' },
+        { name: 'Nasra Cali Jaamac', gender: 'FEMALE', dob: '1989-04-11', phone: '615800030', addr: 'Wadajir District, Mogadishu' },
+    ];
+
+    for (const dp of districtPatients) {
+        const nameParts = dp.name.split(' ');
+        await prisma.patient.upsert({
+            where: { phone: dp.phone },
+            update: {
+                fullName: dp.name,
+                firstName: nameParts[0],
+                lastName: nameParts[nameParts.length - 1],
+                gender: dp.gender,
+                dateOfBirth: new Date(dp.dob + 'T00:00:00.000Z'),
+                address: dp.addr,
+                city: 'Mogadishu',
+                state: 'Banaadir',
+                branchId: mainBranch.id,
+            },
+            create: {
+                fullName: dp.name,
+                firstName: nameParts[0],
+                lastName: nameParts[nameParts.length - 1],
+                gender: dp.gender,
+                dateOfBirth: new Date(dp.dob + 'T00:00:00.000Z'),
+                phone: dp.phone,
+                address: dp.addr,
+                city: 'Mogadishu',
+                state: 'Banaadir',
+                branchId: mainBranch.id,
+            },
+        });
+    }
+    console.log(`Seeded ${districtPatients.length} district patients across Mogadishu.`);
 
     // Somali end-to-end patient workflow seed (Farax + Halimo sample)
     const workflowDoctor = await prisma.doctor.findFirst({

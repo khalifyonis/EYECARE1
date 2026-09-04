@@ -52,63 +52,64 @@ export default function DashboardLayout({
             if (!cancelled) setAuthReady(true)
         }
 
-        const safetyTimer = window.setTimeout(() => {
-            if (cancelled) return
-            const fallbackUser = readStoredUser()
-            if (fallbackUser) {
-                setHeaderUser(fallbackUser)
-                refreshPermissions() // Sync permissions from local
-                setReady()
-                return
-            }
-            clearSession()
-            router.replace('/login')
-            setReady()
-        }, 8000)
-
         const token = localStorage.getItem('token')
         if (!token) {
-            window.clearTimeout(safetyTimer)
             clearSession()
             router.replace('/login')
             setReady()
             return
         }
 
+        // ── Instant render from cache (no loading spinner) ──
+        const cachedUser = readStoredUser()
+        if (cachedUser) {
+            setHeaderUser(cachedUser)
+            refreshPermissions()
+            setReady() // Show dashboard immediately
+        }
+
+        // ── Background verification: validate token + refresh permissions in parallel ──
+        const safetyTimer = window.setTimeout(() => {
+            if (cancelled) return
+            if (!cachedUser) {
+                clearSession()
+                router.replace('/login')
+            }
+            setReady()
+        }, 2000)
+
         const verifySession = async () => {
             try {
-                const response = await api.get('/auth/me', { timeout: 7000 })
+                const [authRes, permsRes] = await Promise.all([
+                    api.get('/auth/me', { timeout: 5000 }),
+                    api.get('/permissions/mine', { timeout: 5000 }),
+                ])
+
+                if (cancelled) return
+
                 const userData = {
-                    ...response.data,
-                    role: response.data.role?.name || response.data.role
+                    ...authRes.data,
+                    role: authRes.data.role?.name || authRes.data.role
                 }
                 localStorage.setItem('user', JSON.stringify(userData))
                 setHeaderUser(userData as StoredUser)
 
-                // Refresh permissions to ensure context is up to date
-                const permsRes = await api.get('/permissions/mine')
                 localStorage.setItem('permissions', JSON.stringify(permsRes.data))
                 refreshPermissions()
-
                 setReady()
             } catch (error: unknown) {
+                if (cancelled) return
                 const status = getHttpStatus(error)
                 if (status === 404 || status === 401) {
                     clearSession()
                     router.replace('/login')
                     setReady()
-                } else {
-                    const fallbackUser = readStoredUser()
-                    if (!fallbackUser) {
-                        clearSession()
-                        router.replace('/login')
-                        setReady()
-                        return
-                    }
-                    setHeaderUser(fallbackUser)
-                    refreshPermissions()
+                } else if (!cachedUser) {
+                    clearSession()
+                    router.replace('/login')
                     setReady()
                 }
+                // If we have a cached user, silently keep using it
             } finally {
                 window.clearTimeout(safetyTimer)
             }

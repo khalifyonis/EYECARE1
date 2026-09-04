@@ -199,7 +199,7 @@ export default function NewPrescriptionPage() {
 
     setSaving(true);
     try {
-      await api.post('/prescriptions', {
+      const res = await api.post('/prescriptions', {
         patientId: patient.id,
         type,
         validityMonths: validity,
@@ -225,8 +225,14 @@ export default function NewPrescriptionPage() {
         coatings,
       });
 
+      const newId = res.data?.id || res.data?.data?.id;
       toast.success('Prescription created');
-      router.push('/dashboard/prescription/optical');
+
+      if (newId) {
+        router.push(`/dashboard/prescription/optical/${newId}?print=true`);
+      } else {
+        router.push('/dashboard/prescription/optical');
+      }
     } catch {
       toast.error('Failed to save prescription');
     } finally {

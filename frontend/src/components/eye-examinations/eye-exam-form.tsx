@@ -38,6 +38,7 @@ type MedicationItem = {
   quantity?: number;
   notes?: string;
   category?: string;
+  isCustom?: boolean;
 };
 
 type FollowUpState = {
@@ -216,6 +217,7 @@ type EyeExamFormProps = {
   initialData?: EyeExamFormInitialData | null;
   submitting: boolean;
   onSubmit: (payload: EyeExamFormSubmitPayload) => Promise<any>;
+  onSuccess?: (examId: string, options?: { opticalPrescriptionId?: string; hasMedicine?: boolean }) => void;
   cancelHref: string;
   stage?: 'PRELIMINARY' | 'CLINICAL' | 'ALL';
   appointmentId?: string;
@@ -251,7 +253,7 @@ const IOP_METHODS = [
 const FOLLOW_UP_INTERVALS = ['1 week', '2 weeks', '1 month', '3 months', '6 months', '1 year'];
 
 const emptyDiagnosis = (): DiagnosisItem => ({ icdCode: '', description: '', eye: 'OU' });
-const emptyMedication = (): MedicationItem => ({ itemId: '', name: '', dosage: '', frequency: '', duration: '', eye: 'OU' });
+const emptyMedication = (): MedicationItem => ({ itemId: '', name: '', dosage: '', frequency: '', duration: '', eye: 'NONE' });
 const emptyEyeFindings = (): EyeFindingsState => ({ OD: '', OS: '' });
 
 const CLINICAL_SUGGESTIONS: Record<string, string[]> = {
@@ -447,40 +449,40 @@ function parseAssessmentMeta(findings: unknown): AssessmentMeta | null {
 
   const diagnosisItems = Array.isArray(maybeMeta.diagnosisItems)
     ? maybeMeta.diagnosisItems
-        .map((item) => {
-          if (!isObjectLike(item)) return null;
-          const eye = item.eye === 'OD' || item.eye === 'OS' ? item.eye : 'OU';
-          return {
-            icdCode: String(item.icdCode || ''),
-            description: String(item.description || ''),
-            eye,
-          } as DiagnosisItem;
-        })
-        .filter((item): item is DiagnosisItem => item !== null)
+      .map((item) => {
+        if (!isObjectLike(item)) return null;
+        const eye = item.eye === 'OD' || item.eye === 'OS' ? item.eye : 'OU';
+        return {
+          icdCode: String(item.icdCode || ''),
+          description: String(item.description || ''),
+          eye,
+        } as DiagnosisItem;
+      })
+      .filter((item): item is DiagnosisItem => item !== null)
     : [];
 
   const medications = Array.isArray(maybeMeta.medications)
     ? maybeMeta.medications
-        .map((item) => {
-          if (!isObjectLike(item)) return null;
-          const eye = item.eye === 'OD' || item.eye === 'OS' ? item.eye : 'OU';
-          return {
-            name: String(item.name || ''),
-            dosage: String(item.dosage || ''),
-            frequency: String(item.frequency || ''),
-            duration: String(item.duration || ''),
-            eye,
-          } as MedicationItem;
-        })
-        .filter((item): item is MedicationItem => item !== null)
+      .map((item) => {
+        if (!isObjectLike(item)) return null;
+        const eye = item.eye === 'OD' || item.eye === 'OS' ? item.eye : 'OU';
+        return {
+          name: String(item.name || ''),
+          dosage: String(item.dosage || ''),
+          frequency: String(item.frequency || ''),
+          duration: String(item.duration || ''),
+          eye,
+        } as MedicationItem;
+      })
+      .filter((item): item is MedicationItem => item !== null)
     : [];
 
   const followUp = isObjectLike(maybeMeta.followUp)
     ? {
-        recommended: Boolean(maybeMeta.followUp.recommended ?? true),
-        interval: String(maybeMeta.followUp.interval || '1 month'),
-        reason: String(maybeMeta.followUp.reason || ''),
-      }
+      recommended: Boolean(maybeMeta.followUp.recommended ?? true),
+      interval: String(maybeMeta.followUp.interval || '1 month'),
+      reason: String(maybeMeta.followUp.reason || ''),
+    }
     : { recommended: true, interval: '1 month', reason: '' };
 
   return {
@@ -579,7 +581,7 @@ function buildInitialFormState(initialData?: EyeExamFormInitialData | null): Exa
   };
 }
 
-export default function EyeExamForm({ mode, initialData, submitting, onSubmit, cancelHref, stage = 'ALL', appointmentId: propAppointmentId }: EyeExamFormProps) {
+export default function EyeExamForm({ mode, initialData, submitting, onSubmit, cancelHref, stage = 'ALL', appointmentId: propAppointmentId, onSuccess }: EyeExamFormProps) {
   const router = useRouter();
 
   const tabs = useMemo(() => {
@@ -830,10 +832,13 @@ export default function EyeExamForm({ mode, initialData, submitting, onSubmit, c
 
     const res = await onSubmit(payload);
 
+    let opticalPrescriptionId: string | undefined = undefined;
+    let hasMedicine = false;
+
     // Integrated Prescription Workflow: Save Optical Prescription if enabled
     if (form.opticalPrescription?.enabled && res?.id) {
       try {
-        await api.post('/prescriptions', {
+        const presRes = await api.post('/prescriptions', {
           patientId: selectedPatientId,
           type: form.opticalPrescription.type,
           validityMonths: Number(form.opticalPrescription.validityMonths),
@@ -856,6 +861,7 @@ export default function EyeExamForm({ mode, initialData, submitting, onSubmit, c
           appointmentId: propAppointmentId,
           examId: res.id,
         });
+        opticalPrescriptionId = presRes.data.id;
         toast.success('Optical prescription created successfully');
       } catch (err) {
         console.error('Failed to create integrated prescription', err);
@@ -889,8 +895,17 @@ export default function EyeExamForm({ mode, initialData, submitting, onSubmit, c
         }
       }
       if (medSuccess > 0) {
+        hasMedicine = true;
         toast.success(`${medSuccess} medicine prescription(s) created`);
       }
+    }
+
+    // Trigger success callback to handle redirect/printing
+    if (res?.id && onSuccess) {
+      onSuccess(res.id, {
+        opticalPrescriptionId,
+        hasMedicine
+      });
     }
   };
 
@@ -911,8 +926,20 @@ export default function EyeExamForm({ mode, initialData, submitting, onSubmit, c
           <ArrowLeft className="h-4 w-4" />
           Back
         </button>
-        <h1 className="text-2xl font-black tracking-tight text-slate-900">{mode === 'edit' ? 'Edit Eye Examination' : 'New Eye Examination'}</h1>
-        <p className="mt-0.5 text-sm text-slate-500">{mode === 'edit' ? 'Update comprehensive eye examination record' : 'Create comprehensive eye examination record'}</p>
+        <h1 className="text-2xl font-black tracking-tight text-slate-900">
+          {stage === 'CLINICAL'
+            ? (mode === 'edit' ? 'Clinical Examination' : 'New Clinical Examination')
+            : stage === 'PRELIMINARY'
+              ? (mode === 'edit' ? 'Edit Preliminary Examination' : 'New Preliminary Examination')
+              : (mode === 'edit' ? 'Edit Eye Examination' : 'New Eye Examination')}
+        </h1>
+        <p className="mt-0.5 text-sm text-slate-500">
+          {stage === 'CLINICAL'
+            ? (mode === 'edit' ? 'Complete clinical evaluation and documentation' : 'Create clinical evaluation record')
+            : stage === 'PRELIMINARY'
+              ? (mode === 'edit' ? 'Update preliminary examination record' : 'Create preliminary examination record')
+              : (mode === 'edit' ? 'Update comprehensive eye examination record' : 'Create comprehensive eye examination record')}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -1035,38 +1062,6 @@ export default function EyeExamForm({ mode, initialData, submitting, onSubmit, c
 
             {activeTab === 'va' && (
               <div className="space-y-6">
-                <div className="flex items-center gap-6 rounded-lg border border-gray-100 bg-gray-50/50 p-3">
-                  <span className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-2">Method:</span>
-                  <label className="flex items-center gap-2 cursor-pointer group">
-                    <input
-                      type="radio"
-                      checked={form.visualAcuity.method === 'snellen'}
-                      onChange={() =>
-                        setForm((prev) => ({
-                          ...prev,
-                          visualAcuity: { ...prev.visualAcuity, method: 'snellen' },
-                        }))
-                      }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                    />
-                    <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">Snellen</span>
-                  </label>
-                  <label className="flex items-center gap-2 cursor-pointer group">
-                    <input
-                      type="radio"
-                      checked={form.visualAcuity.method === 'logmar'}
-                      onChange={() =>
-                        setForm((prev) => ({
-                          ...prev,
-                          visualAcuity: { ...prev.visualAcuity, method: 'logmar' },
-                        }))
-                      }
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                    />
-                    <span className="text-sm font-medium text-gray-700 group-hover:text-blue-600 transition-colors">LogMAR</span>
-                  </label>
-                </div>
-
                 <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                   {/* Uncorrected VA */}
                   <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -2089,46 +2084,96 @@ export default function EyeExamForm({ mode, initialData, submitting, onSubmit, c
 
                         <div className="grid grid-cols-1 gap-5">
                           <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                            <div className="lg:col-span-2 space-y-1">
-                              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Medicine Name</label>
-                              <select
-                                value={item.itemId}
-                                onChange={(e) => {
-                                  const p = pharmacyItems.find((x) => x.id === e.target.value);
-                                  const next = [...form.medications];
-                                  
-                                  const fullName = (p?.itemName || '').toLowerCase();
-                                  const type = (p?.itemType || '').toLowerCase();
-                                  const cat = (p?.category || '').toLowerCase();
-                                  const isTopical = [fullName, type, cat].some(s => 
-                                    s.includes('drop') || 
-                                    s.includes('ointment') || 
-                                    s.includes('gel') || 
-                                    s.includes('sol') || 
-                                    s.includes('susp') ||
-                                    s.includes('cream') ||
-                                    s.includes('gtt') ||
-                                    s.includes('inj')
-                                  );
+                            <div className="lg:col-span-2 space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                  {item.isCustom ? 'Custom Medicine' : 'Medicine Name'}
+                                </label>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const next = [...form.medications];
+                                    if (item.isCustom) {
+                                      next[index] = { ...next[index], isCustom: false, name: '' };
+                                    } else {
+                                      next[index] = { ...next[index], isCustom: true, itemId: '', name: '' };
+                                    }
+                                    setForm((prev) => ({ ...prev, medications: next }));
+                                  }}
+                                  className="text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md hover:bg-blue-100 transition-colors"
+                                >
+                                  {item.isCustom ? 'Use Inventory' : 'Add Custom'}
+                                </button>
+                              </div>
 
-                                  next[index] = {
-                                    ...next[index],
-                                    itemId: p?.id || '',
-                                    name: p?.itemName || '',
-                                    category: p?.category || p?.itemType || '',
-                                    eye: isTopical ? 'OU' : 'NONE',
-                                  };
-                                  setForm((prev) => ({ ...prev, medications: next }));
-                                }}
-                                className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm focus:border-blue-500 focus:outline-none bg-white"
-                              >
-                                <option value="">Select from inventory</option>
-                                {pharmacyItems.map((p) => (
-                                  <option key={p.id} value={p.id}>
-                                    {p.itemName} {p.strength ? `(${p.strength})` : ''}
-                                  </option>
-                                ))}
-                              </select>
+                              <div className="flex flex-col gap-1.5">
+                                {!item.isCustom ? (
+                                  <select
+                                    value={item.itemId || ''}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      const p = pharmacyItems.find((x) => x.id === val);
+                                      const next = [...form.medications];
+
+                                      if (p) {
+                                        const fullName = (p.itemName || '').toLowerCase();
+                                        const type = (p.itemType || '').toLowerCase();
+                                        const cat = (p.category || '').toLowerCase();
+                                        const isTopical = [fullName, type, cat].some((s) =>
+                                          s.includes('drop') ||
+                                          s.includes('ointment') ||
+                                          s.includes('gel') ||
+                                          s.includes('sol') ||
+                                          s.includes('susp') ||
+                                          s.includes('cream') ||
+                                          s.includes('gtt') ||
+                                          s.includes('inj')
+                                        );
+
+                                        next[index] = {
+                                          ...next[index],
+                                          itemId: p.id,
+                                          name: p.itemName || '',
+                                          category: p.category || p.itemType || '',
+                                          eye: isTopical
+                                            ? (next[index].eye === 'NONE' ? 'OU' : next[index].eye)
+                                            : 'NONE',
+                                        };
+                                      } else {
+                                        next[index] = {
+                                          ...next[index],
+                                          itemId: '',
+                                          name: '',
+                                        };
+                                      }
+                                      setForm((prev) => ({ ...prev, medications: next }));
+                                    }}
+                                    className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm focus:border-blue-500 focus:outline-none bg-white"
+                                  >
+                                    <option value="">Select from inventory...</option>
+                                    {pharmacyItems.map((p) => (
+                                      <option key={p.id} value={p.id}>
+                                        {p.itemName} {p.strength ? `(${p.strength})` : ''}
+                                      </option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    type="text"
+                                    value={item.name || ''}
+                                    onChange={(e) => {
+                                      const next = [...form.medications];
+                                      next[index] = {
+                                        ...next[index],
+                                        name: e.target.value,
+                                      };
+                                      setForm((prev) => ({ ...prev, medications: next }));
+                                    }}
+                                    placeholder="Type custom medicine..."
+                                    className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm focus:border-blue-500 focus:outline-none bg-white"
+                                  />
+                                )}
+                              </div>
                             </div>
 
                             <div className="space-y-1">
@@ -2175,20 +2220,19 @@ export default function EyeExamForm({ mode, initialData, submitting, onSubmit, c
                                 placeholder="e.g. 7 days"
                               />
                             </div>
-                            {item.eye !== 'NONE' && (
-                              <div className="space-y-1">
-                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Eye</label>
-                                <select
-                                  value={item.eye}
-                                  onChange={(e) => updateMedication(index, 'eye', e.target.value as any)}
-                                  className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm focus:border-blue-500 focus:outline-none bg-white"
-                                >
-                                  <option value="OD">OD (Right Eye)</option>
-                                  <option value="OS">OS (Left Eye)</option>
-                                  <option value="OU">OU (Both Eyes)</option>
-                                </select>
-                              </div>
-                            )}
+                            <div className="space-y-1">
+                              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider">Eye</label>
+                              <select
+                                value={item.eye || 'NONE'}
+                                onChange={(e) => updateMedication(index, 'eye', e.target.value as any)}
+                                className="h-10 w-full rounded-lg border border-gray-200 px-3 text-sm focus:border-blue-500 focus:outline-none bg-white"
+                              >
+                                <option value="NONE">N/A (Systemic)</option>
+                                <option value="OD">OD (Right Eye)</option>
+                                <option value="OS">OS (Left Eye)</option>
+                                <option value="OU">OU (Both Eyes)</option>
+                              </select>
+                            </div>
                           </div>
 
                           <div className="space-y-1">

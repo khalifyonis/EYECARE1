@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import api from '@/lib/axios';
 import { cn } from '@/lib/utils';
@@ -97,11 +97,15 @@ function readAssessmentMeta(value: unknown): AssessmentMeta | null {
 export default function ViewEyeExamPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const rawId = params?.id;
   const id = Array.isArray(rawId) ? rawId[0] : rawId;
   const [exam, setExam] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+
+  // ALL hooks must be called before any early return
+  const { can } = usePermission();
 
   useEffect(() => {
     if (!id) return;
@@ -111,6 +115,16 @@ export default function ViewEyeExamPage() {
       .catch(() => toast.error('Failed to load examination'))
       .finally(() => setLoading(false));
   }, [id]);
+
+  // Auto-print when redirected with ?print=true
+  useEffect(() => {
+    if (!loading && exam && searchParams?.get('print') === 'true') {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, exam, searchParams]);
 
   if (loading)
     return (
@@ -151,8 +165,6 @@ export default function ViewEyeExamPage() {
   const stage = (exam.stage as string) || 'PRELIMINARY';
   const editLink = `/dashboard/eye-examinations/${String(id)}/edit?stage=${stage === 'COMPLETED' ? 'CLINICAL' : stage}`;
 
-  const { can } = usePermission();
-
   const canEditPreliminary = can('preliminary_exams', 'canUpdate');
   const canEditClinical = can('clinical_exams', 'canUpdate');
   const canDeleteExam = can('preliminary_exams', 'canDelete') || can('clinical_exams', 'canDelete');
@@ -164,6 +176,12 @@ export default function ViewEyeExamPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <style jsx global>{`
+        @media print {
+          .print-hide { display: none !important; }
+          body { background: white !important; }
+        }
+      `}</style>
       <div className="border-b border-slate-100 bg-white px-4 pb-4 pt-5 md:px-6 md:pt-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
@@ -183,7 +201,9 @@ export default function ViewEyeExamPage() {
 
       <div className="mx-auto max-w-6xl space-y-5 px-4 py-6 md:px-6 md:py-6">
         <Link
-          href="/dashboard/eye-examinations"
+          href={stage === 'PRELIMINARY' ? '/dashboard/eye-examinations/preliminary-exam'
+            : (stage === 'CLINICAL' || stage === 'COMPLETED') ? '/dashboard/eye-examinations/clinical'
+              : '/dashboard/eye-examinations/preliminary-exam'}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 transition-colors hover:text-slate-900"
         >
           <ArrowLeft className="h-4 w-4" />

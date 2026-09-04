@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import {
   Users, UserPlus, Calendar, Users2, Loader2,
-  Download, Search, FileText, X,
+  Download, Search, FileText, X, MapPin
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
@@ -22,9 +22,10 @@ import { downloadPatientMedicalRecord, normalizePatient, type ReportPatient } fr
 import { cn } from '@/lib/utils';
 
 type PatientData = {
-  kpis: { totalPatients: number; newInPeriod: number; genderDist: string; avgAge: number };
+  kpis: { totalPatients: number; newInPeriod: number; genderDist: string; avgAge: number; topDistrict?: string };
   chart1: Array<{ name: string; value: number }>;
   chart2: Array<{ name: string; value: number }>;
+  chart3?: Array<{ name: string; value: number }>;
   tableData: Array<{
     id: string; fullName: string; gender: string | null; dateOfBirth: string;
     phone: string; email: string | null; address: string | null; bloodGroup: string | null; createdAt: string;
@@ -40,7 +41,7 @@ function parsePatientList(res: { data: unknown }): PatientOption[] {
   const body = res.data as { data?: unknown[] } | unknown[];
   const raw = Array.isArray(body) ? body : (body?.data ?? []);
   if (!Array.isArray(raw)) return [];
-  return raw.map((p: Record<string, unknown>) => ({
+  return (raw as Record<string, unknown>[]).map((p) => ({
     id: String(p.id),
     fullName: String(p.fullName || `${p.firstName || ''} ${p.lastName || ''}`.trim()),
     patientNumber: p.patientNumber ? String(p.patientNumber) : undefined,
@@ -200,10 +201,10 @@ export default function PatientReportPage() {
 
       const rows = registrySearch.trim()
         ? data.tableData.filter((r) =>
-            r.fullName.toLowerCase().includes(registrySearch.toLowerCase()) ||
-            r.phone.includes(registrySearch) ||
-            (r.address || '').toLowerCase().includes(registrySearch.toLowerCase()),
-          )
+          r.fullName.toLowerCase().includes(registrySearch.toLowerCase()) ||
+          r.phone.includes(registrySearch) ||
+          (r.address || '').toLowerCase().includes(registrySearch.toLowerCase()),
+        )
         : data.tableData;
 
       for (const row of rows) {
@@ -231,7 +232,7 @@ export default function PatientReportPage() {
     const headers = ['Full Name', 'Gender', 'Date of Birth', 'Phone', 'Email', 'Blood Group', 'Address', 'Registered Date'];
     const lines = data.tableData.map((row) =>
       [row.fullName, row.gender || '-', new Date(row.dateOfBirth).toLocaleDateString(), row.phone,
-        row.email || '-', row.bloodGroup || '-', row.address || '-', new Date(row.createdAt).toLocaleDateString()]
+      row.email || '-', row.bloodGroup || '-', row.address || '-', new Date(row.createdAt).toLocaleDateString()]
         .map((v) => `"${String(v).replace(/"/g, '""')}"`).join(','),
     );
     const blob = new Blob([[headers.join(','), ...lines].join('\n')], { type: 'text/csv;charset=utf-8;' });
@@ -330,21 +331,22 @@ export default function PatientReportPage() {
         </div>
       ) : data ? (
         <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 report-kpis report-no-print">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 report-kpis report-no-print">
             {[
               { label: 'Total Patients', value: data.kpis.totalPatients.toLocaleString(), icon: Users, color: 'from-emerald-500 to-teal-600' },
               { label: 'New in Period', value: data.kpis.newInPeriod.toLocaleString(), icon: UserPlus, color: 'from-sky-500 to-blue-600' },
               { label: 'Gender (M / F)', value: data.kpis.genderDist, icon: Users2, color: 'from-violet-500 to-purple-600' },
               { label: 'Average Age', value: `${data.kpis.avgAge} yrs`, icon: Calendar, color: 'from-amber-500 to-orange-600' },
+              { label: 'Top District (Degmo)', value: data.kpis.topDistrict || 'N/A', icon: MapPin, color: 'from-rose-500 to-red-600' }
             ].map((k) => (
-              <div key={k.label} className={`rounded-2xl bg-gradient-to-br ${k.color} p-5 text-white shadow-lg`}>
-                <p className="text-sm opacity-90">{k.label}</p>
-                <p className="text-2xl font-bold mt-1">{k.value}</p>
+              <div key={k.label} className={`rounded-2xl bg-gradient-to-br ${k.color} p-5 text-white shadow-lg flex flex-col justify-between min-h-[96px]`}>
+                <p className="text-xs font-semibold opacity-90 truncate" title={k.label}>{k.label}</p>
+                <p className="text-xl lg:text-2xl font-bold mt-2 truncate" title={k.value.toString()}>{k.value}</p>
               </div>
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 report-charts report-no-print">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 report-charts report-no-print">
             <div className="lg:col-span-2 rounded-2xl border bg-white dark:bg-slate-900 p-5 shadow-sm">
               <h2 className="text-sm font-bold mb-4">Patient Growth Trend</h2>
               <div className="h-64">
@@ -353,7 +355,7 @@ export default function PatientReportPage() {
                     <LineChart data={data.chart1}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
                       <RechartsTooltip />
                       <Line type="monotone" dataKey="value" stroke="#0EA5E9" strokeWidth={2.5} dot={{ r: 4 }} />
                     </LineChart>
@@ -365,13 +367,13 @@ export default function PatientReportPage() {
             </div>
             <div className="rounded-2xl border bg-white dark:bg-slate-900 p-5 shadow-sm">
               <h2 className="text-sm font-bold mb-4">Age Demographics</h2>
-              <div className="h-64">
+              <div className="h-48 sm:h-64">
                 {data.chart2.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={data.chart2}>
                       <CartesianGrid strokeDasharray="3 3" />
                       <XAxis dataKey="name" tick={{ fontSize: 10 }} />
-                      <YAxis tick={{ fontSize: 10 }} />
+                      <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
                       <RechartsTooltip />
                       <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                         {data.chart2.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
@@ -380,6 +382,26 @@ export default function PatientReportPage() {
                   </ResponsiveContainer>
                 ) : (
                   <div className="flex h-full items-center justify-center text-xs text-slate-400">No age data</div>
+                )}
+              </div>
+            </div>
+            <div className="rounded-2xl border bg-white dark:bg-slate-900 p-5 shadow-sm">
+              <h2 className="text-sm font-bold mb-4">Top Districts (Degmo)</h2>
+              <div className="h-48 sm:h-64">
+                {data.chart3 && data.chart3.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data.chart3} layout="vertical" margin={{ left: 24 }}>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                      <XAxis type="number" tick={{ fontSize: 10 }} allowDecimals={false} />
+                      <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={80} />
+                      <RechartsTooltip />
+                      <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+                        {data.chart3.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex h-full items-center justify-center text-xs text-slate-400">No district data</div>
                 )}
               </div>
             </div>

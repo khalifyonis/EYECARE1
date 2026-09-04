@@ -1,0 +1,45 @@
+src/app/dashboard/reports/branch-report/page.tsx(190,83): error TS18048: 'percent' is possibly 'undefined'.
+src/app/dashboard/reports/branch-report/page.tsx(193,54): error TS2322: Type '(v: number) => string' is not assignable to type 'Formatter<number, NameType> & ((value: number, name: NameType, item: Payload<number, NameType>, index: number, payload: Payload<number, NameType>[]) => ReactNode | [...])'.
+  Type '(v: number) => string' is not assignable to type 'Formatter<number, NameType>'.
+    Types of parameters 'v' and 'value' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/app/dashboard/reports/doctor-performance/page.tsx(237,157): error TS18048: 'percent' is possibly 'undefined'.
+src/app/dashboard/reports/doctor-performance/page.tsx(237,177): error TS18048: 'name' is possibly 'undefined'.
+src/app/dashboard/reports/doctor-performance/page.tsx(237,200): error TS18048: 'percent' is possibly 'undefined'.
+src/app/dashboard/reports/doctor-performance/page.tsx(240,54): error TS2322: Type '(v: number) => string' is not assignable to type 'Formatter<number, NameType> & ((value: number, name: NameType, item: Payload<number, NameType>, index: number, payload: Payload<number, NameType>[]) => ReactNode | [...])'.
+  Type '(v: number) => string' is not assignable to type 'Formatter<number, NameType>'.
+    Types of parameters 'v' and 'value' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/app/dashboard/reports/income-by-service/page.tsx(263,54): error TS2322: Type '(v: number) => string' is not assignable to type 'Formatter<number, NameType> & ((value: number, name: NameType, item: Payload<number, NameType>, index: number, payload: Payload<number, NameType>[]) => ReactNode | [...])'.
+  Type '(v: number) => string' is not assignable to type 'Formatter<number, NameType>'.
+    Types of parameters 'v' and 'value' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/app/dashboard/reports/income-by-service/page.tsx(274,169): error TS18048: 'percent' is possibly 'undefined'.
+src/app/dashboard/reports/income-by-service/page.tsx(279,54): error TS2322: Type '(v: number) => string' is not assignable to type 'Formatter<number, NameType> & ((value: number, name: NameType, item: Payload<number, NameType>, index: number, payload: Payload<number, NameType>[]) => ReactNode | [...])'.
+  Type '(v: number) => string' is not assignable to type 'Formatter<number, NameType>'.
+    Types of parameters 'v' and 'value' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/app/dashboard/reports/income-by-service/page.tsx(294,54): error TS2322: Type '(v: number) => string' is not assignable to type 'Formatter<number, NameType> & ((value: number, name: NameType, item: Payload<number, NameType>, index: number, payload: Payload<number, NameType>[]) => ReactNode | [...])'.
+  Type '(v: number) => string' is not assignable to type 'Formatter<number, NameType>'.
+    Types of parameters 'v' and 'value' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/app/dashboard/reports/revenue-trend/page.tsx(276,23): error TS2322: Type '(val: number) => [string, "Revenue"]' is not assignable to type 'Formatter<number, "Revenue"> & ((value: number, name: "Revenue", item: Payload<number, "Revenue">, index: number, payload: Payload<number, "Revenue">[]) => ReactNode | [...])'.
+  Type '(val: number) => [string, "Revenue"]' is not assignable to type 'Formatter<number, "Revenue">'.
+    Types of parameters 'val' and 'value' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/app/dashboard/reports/revenue-trend/page.tsx(301,25): error TS2322: Type '(val: number) => [string, "Revenue"]' is not assignable to type 'Formatter<number, "Revenue"> & ((value: number, name: "Revenue", item: Payload<number, "Revenue">, index: number, payload: Payload<number, "Revenue">[]) => ReactNode | [...])'.
+  Type '(val: number) => [string, "Revenue"]' is not assignable to type 'Formatter<number, "Revenue">'.
+    Types of parameters 'val' and 'value' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+src/app/dashboard/reports/revenue-trend/page.tsx(329,27): error TS2322: Type '(val: number) => [string, "Revenue"]' is not assignable to type 'Formatter<number, "Revenue"> & ((value: number, name: "Revenue", item: Payload<number, "Revenue">, index: number, payload: Payload<number, "Revenue">[]) => ReactNode | [...])'.
+  Type '(val: number) => [string, "Revenue"]' is not assignable to type 'Formatter<number, "Revenue">'.
+    Types of parameters 'val' and 'value' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.

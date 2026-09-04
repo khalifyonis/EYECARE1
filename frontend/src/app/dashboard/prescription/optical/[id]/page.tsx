@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import api from '@/lib/axios';
 import { toast } from 'sonner';
 
@@ -96,11 +96,21 @@ async function downloadJson(filename: string, data: unknown) {
 
 export default function PrescriptionDetailsPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params?.id as string;
 
   const [row, setRow] = useState<OpticalPrescription | null>(null);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    if (!loading && row && searchParams?.get('print') === 'true') {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, row, searchParams]);
 
   useEffect(() => {
     if (!id) return;
@@ -124,7 +134,6 @@ export default function PrescriptionDetailsPage() {
 
   const statusLabel = (row.status || '').toLowerCase() || 'filled';
   const showSpectacles = row.type === 'SPECTACLES' || row.type === 'BOTH';
-  const showContact = true;
 
   const odPower = row.odSphere || '-';
   const osPower = row.osSphere || '-';
@@ -345,55 +354,7 @@ export default function PrescriptionDetailsPage() {
         </div>
       )}
 
-      {showContact && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-6">
-          <div className="flex items-center gap-2 text-lg font-semibold text-slate-900">
-            <Eye className="h-6 w-6 text-[#0EA5E9]" />
-            Contact Lens Prescription
-          </div>
 
-          <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-sm">
-              <thead>
-                <tr className="bg-slate-50 text-slate-600">
-                  <th className="px-4 py-3 text-left font-semibold">Eye</th>
-                  <th className="px-4 py-3 text-left font-semibold">Power</th>
-                  <th className="px-4 py-3 text-left font-semibold">BC</th>
-                  <th className="px-4 py-3 text-left font-semibold">DIA</th>
-                  <th className="px-4 py-3 text-left font-semibold">Cylinder</th>
-                  <th className="px-4 py-3 text-left font-semibold">Axis</th>
-                  <th className="px-4 py-3 text-left font-semibold">Brand</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-slate-100">
-                  <td className="px-4 py-4 font-semibold">OD (Right)</td>
-                  <td className="px-4 py-4">{odPower}</td>
-                  <td className="px-4 py-4">8.6</td>
-                  <td className="px-4 py-4">14.2</td>
-                  <td className="px-4 py-4">{odCylinder}</td>
-                  <td className="px-4 py-4">{odAxis}</td>
-                  <td className="px-4 py-4">-</td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-4 font-semibold">OS (Left)</td>
-                  <td className="px-4 py-4">{osPower}</td>
-                  <td className="px-4 py-4">8.6</td>
-                  <td className="px-4 py-4">14.2</td>
-                  <td className="px-4 py-4">{osCylinder}</td>
-                  <td className="px-4 py-4">{osAxis}</td>
-                  <td className="px-4 py-4">-</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-5 max-w-[520px] rounded-xl bg-slate-50 px-4 py-3">
-            <p className={LABEL_CN}>Replacement Schedule</p>
-            <p className="text-base font-semibold text-slate-900">Monthly</p>
-          </div>
-        </div>
-      )}
 
       <div className="rounded-xl border border-slate-200 bg-white p-6">
         <div className="text-base font-semibold text-slate-900">Notes</div>

@@ -274,7 +274,7 @@ export default function NewBillingPage() {
 
     setSaving(true);
     try {
-      await api.post('/billing', {
+      const res = await api.post('/billing', {
         patientId,
         serviceType,
         prescriptionId: serviceType === 'PHARMACY' ? prescriptionId : undefined,
@@ -293,8 +293,13 @@ export default function NewBillingPage() {
         })),
       });
 
+      const newId = res.data?.id || res.data?.data?.id
       toast.success('Invoice created');
-      router.push('/dashboard/billing');
+      if (newId) {
+        router.push(`/dashboard/billing/${newId}?print=true`);
+      } else {
+        router.push('/dashboard/billing');
+      }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       toast.error(typeof msg === 'string' ? msg : 'Failed to create invoice');

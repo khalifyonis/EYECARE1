@@ -39,6 +39,7 @@ export function UserForm({ user, onSuccess, onCancel }: UserFormProps) {
         password: '',
         roleName: '',
         specialization: '',
+        dailyPatientLimit: '' as string | number,
         branchIds: [] as string[],
     });
 
@@ -78,10 +79,11 @@ export function UserForm({ user, onSuccess, onCancel }: UserFormProps) {
                 password: '',
                 roleName: user.roleName || '',
                 specialization: user.doctor?.specialization || '',
+                dailyPatientLimit: user.doctor?.dailyPatientLimit || '',
                 branchIds: user.branches ? user.branches.map((b: any) => b.id) : (user.branchId ? [user.branchId.toString()] : []),
             });
         } else {
-            setFormData({ fullName: '', username: '', email: '', password: '', roleName: '', specialization: '', branchIds: [] });
+            setFormData({ fullName: '', username: '', email: '', password: '', roleName: '', specialization: '', dailyPatientLimit: '', branchIds: [] });
         }
     }, [user]);
 
@@ -109,6 +111,7 @@ export function UserForm({ user, onSuccess, onCancel }: UserFormProps) {
                 username: formData.username.trim(),
                 email: formData.email.trim().toLowerCase(),
                 specialization: formData.specialization.trim(),
+                dailyPatientLimit: formData.dailyPatientLimit ? String(formData.dailyPatientLimit) : null,
             };
             if (user) {
                 await api.put(`/users/${user.id}`, payload);
@@ -215,8 +218,8 @@ export function UserForm({ user, onSuccess, onCancel }: UserFormProps) {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-1.5">
                                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Specialization</label>
-                                <Select 
-                                    value={formData.specialization} 
+                                <Select
+                                    value={formData.specialization}
                                     onValueChange={(v) => setFormData({ ...formData, specialization: v })}
                                 >
                                     <SelectTrigger className="h-10 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus:ring-[#0EA5E9] text-sm">
@@ -230,6 +233,18 @@ export function UserForm({ user, onSuccess, onCancel }: UserFormProps) {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">Daily Patient Limit</label>
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    placeholder="e.g. 50 (Leave blank for no limit)"
+                                    value={formData.dailyPatientLimit}
+                                    onChange={(e) => setFormData({ ...formData, dailyPatientLimit: e.target.value })}
+                                    className="h-10 rounded-lg border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 focus-visible:ring-[#0EA5E9] text-sm"
+                                />
+                                <p className="text-xs text-slate-400">Empty means unlimited</p>
                             </div>
                         </div>
                     )}
@@ -290,7 +305,7 @@ export function UserForm({ user, onSuccess, onCancel }: UserFormProps) {
                                 >
                                     <Checkbox
                                         checked={formData.branchIds.includes(b.id)}
-                                        onChange={() => {}} // Controlled by div onClick
+                                        onChange={() => { }} // Controlled by div onClick
                                     />
                                     <span className="font-medium">{b.branchName}</span>
                                 </div>

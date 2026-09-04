@@ -7,7 +7,24 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { CircleDot, PackageX, Search, TriangleAlert } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { CircleDot, PackageX, Search, TriangleAlert, Plus, Pencil, Trash2, MoreVertical } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 type OpticalItem = {
   id: string
@@ -73,6 +90,9 @@ export default function LensInventoryPage() {
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
   const [materialFilter, setMaterialFilter] = useState('all')
+
+  const [adjustItem, setAdjustItem] = useState<OpticalItem | null>(null)
+  const [adjustQty, setAdjustQty] = useState('')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -269,68 +289,164 @@ export default function LensInventoryPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {filtered.length === 0 ? (
-          <div className="col-span-full rounded-2xl border border-slate-200 bg-white px-6 py-12 text-center text-lg text-slate-500">
-            {loading ? 'Loading...' : 'No lenses found'}
-          </div>
-        ) : (
-          filtered.map((row) => {
-            const meta = parseLensMeta(row.manufacturer)
-            const stock = Number(row.stockQuantity || 0)
-            const badgeClass = stock > 0 ? 'bg-sky-100 text-[#0c96d4]' : 'bg-red-100 text-red-700'
-
-            return (
-              <div key={row.id} className="rounded-2xl border border-slate-200 bg-white p-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-xl md:text-2xl font-bold text-slate-900">{meta.sku || row.itemName || '-'}</div>
-                    <div className="mt-1 text-base md:text-lg text-slate-600">{meta.type || '-'}</div>
-                  </div>
-                  <span className={`rounded-full px-3 py-1 text-sm font-semibold ${badgeClass}`}>{stock} in stock</span>
-                </div>
-
-                <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm md:text-base">
-                  <div className="text-slate-500">Material</div>
-                  <div className="text-right text-slate-800">{meta.material || '-'}</div>
-                  <div className="text-slate-500">Index</div>
-                  <div className="text-right text-slate-800">{meta.index || '-'}</div>
-                  <div className="text-slate-500">Sphere Range</div>
-                  <div className="text-right text-slate-800">{`${meta.sphereMin || '-'} to ${meta.sphereMax || '-'}`}</div>
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {(meta.coatings || []).length === 0 ? (
-                    <span className="rounded-lg bg-slate-100 px-2 py-1 text-sm text-slate-500">No coatings</span>
-                  ) : (
-                    (meta.coatings || []).map((coating) => (
-                      <span key={coating} className="rounded-lg bg-slate-100 px-2 py-1 text-sm text-slate-600">
-                        {coating}
-                      </span>
-                    ))
-                  )}
-                </div>
-
-                <div className="mt-4 flex items-center justify-between">
-                  <div className="text-xl md:text-2xl font-bold text-slate-900">Price: {money(Number(row.sellingPrice || 0))}</div>
-                  <div className="flex items-center gap-3">
-                    <Link href={`/dashboard/optical-shop/lenses/new?id=${row.id}`} className="text-sm font-semibold text-[#0EA5E9] hover:text-[#0c96d4]">
-                      Edit
-                    </Link>
-                    <button
-                      type="button"
-                      className="text-sm font-semibold text-red-600 hover:text-red-700"
-                      onClick={() => void onDelete(row.id)}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
-          })
-        )}
+      <div className="bg-white dark:bg-slate-950 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-slate-50/50 dark:bg-slate-900/50 hover:bg-slate-50/50 dark:hover:bg-slate-900/50 border-slate-200 dark:border-slate-800">
+                <TableHead className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest py-4 px-6">SKU</TableHead>
+                <TableHead className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest py-4 px-6">Lens Type</TableHead>
+                <TableHead className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest py-4 px-6">Material / Index</TableHead>
+                <TableHead className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest py-4 px-6">Sphere / Cyl Range</TableHead>
+                <TableHead className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest py-4 px-6">Coatings</TableHead>
+                <TableHead className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest py-4 px-6">Price</TableHead>
+                <TableHead className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest py-4 px-6">Stock</TableHead>
+                <TableHead className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest py-4 px-6 text-right w-[100px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="py-10 text-center text-lg text-slate-500">
+                    {loading ? 'Loading...' : 'No lenses found'}
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filtered.map((row) => {
+                  const meta = parseLensMeta(row.manufacturer)
+                  const stock = Number(row.stockQuantity || 0)
+                  return (
+                    <TableRow key={row.id} className="cursor-pointer border-slate-100 dark:border-slate-800 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                      <TableCell className="px-6 py-4 align-middle text-sm text-slate-600 dark:text-slate-400 font-medium">
+                        {meta.sku || row.itemName || '-'}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 align-middle">
+                        <div className="font-semibold text-slate-900 dark:text-slate-100">{meta.type || '-'}</div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 align-middle text-sm text-slate-600 dark:text-slate-400">
+                        {meta.material || '-'} <span className="opacity-50">/</span> {meta.index || '-'}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 align-middle text-sm text-slate-600 dark:text-slate-400">
+                        Sph: {meta.sphereMin || '-'} to {meta.sphereMax || '-'}<br />
+                        Cyl: {meta.cylinderMin || '-'} to {meta.cylinderMax || '-'}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 align-middle">
+                        <div className="flex flex-wrap gap-1">
+                          {(meta.coatings || []).length === 0 ? (
+                            <span className="text-xs text-slate-400">-</span>
+                          ) : (
+                            (meta.coatings || []).map((coating) => (
+                              <span key={coating} className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                                {coating}
+                              </span>
+                            ))
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 align-middle text-sm font-bold text-slate-900 dark:text-slate-100">
+                        {money(Number(row.sellingPrice || 0))}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 align-middle">
+                        <div className={cn(
+                          "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                          stock > (row.reorderLevel || 10) ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400" :
+                            stock > 0 ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                              "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        )}>
+                          {stock} units
+                        </div>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 align-middle text-right">
+                        <div className="flex items-center justify-end" onClick={(e) => e.stopPropagation()}>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreVertical className="h-4 w-4 text-slate-400" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="rounded-xl border-slate-200 dark:border-slate-800 shadow-xl">
+                              <DropdownMenuItem asChild className="flex items-center gap-2 p-3 font-medium">
+                                <Link href={`/dashboard/optical-shop/lenses/new?id=${row.id}`}>
+                                  <Pencil className="h-4 w-4 text-[#0EA5E9]" />
+                                  Edit Lens
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => { setAdjustItem(row); setAdjustQty(''); }} className="flex items-center gap-2 p-3 font-medium text-emerald-600 focus:text-emerald-600">
+                                <Plus className="h-4 w-4" />
+                                Adjust Stock
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => void onDelete(row.id)} className="flex items-center gap-2 p-3 font-medium text-red-600 focus:text-red-600">
+                                <Trash2 className="h-4 w-4" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
+
+      <Dialog open={!!adjustItem} onOpenChange={(open) => !open && setAdjustItem(null)}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Adjust Stock Quantity</DialogTitle>
+            <DialogDescription>
+              Adjusting stock for: <span className="font-semibold text-slate-900 dark:text-white">{parseLensMeta(adjustItem?.manufacturer).sku || adjustItem?.itemName}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-6 py-4">
+            <div className="flex flex-col gap-3">
+              <Label className="text-sm font-semibold">Adjustment Quantity (Units)</Label>
+              <Input
+                type="number"
+                placeholder="e.g. 10 or -5"
+                value={adjustQty}
+                onChange={(e) => setAdjustQty(e.target.value)}
+                className="col-span-3 text-sm h-11"
+              />
+              <p className="text-xs text-slate-500">
+                Current stock: {adjustItem?.stockQuantity} units<br />
+                Positive value to add stock, negative to subtract.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjustItem(null)}>Cancel</Button>
+            <Button
+              className="bg-[#0EA5E9] hover:bg-[#0c96d4] text-white"
+              onClick={async () => {
+                const delta = parseInt(adjustQty, 10);
+                if (isNaN(delta) || delta === 0) {
+                  toast.error('Please enter a valid non-zero adjustment quantity')
+                  return
+                }
+                const newStock = Number(adjustItem?.stockQuantity || 0) + delta;
+                if (newStock < 0) {
+                  toast.error('Adjustment would result in negative stock.')
+                  return
+                }
+                try {
+                  await api.post(`/inventory/optical/${adjustItem?.id}/adjust`, { quantity: delta })
+                  toast.success('Stock adjusted successfully')
+                  setAdjustItem(null)
+                  setAdjustQty('')
+                  load()
+                } catch {
+                  toast.error('Failed to adjust stock')
+                }
+              }}
+            >
+              Adjust Stock
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

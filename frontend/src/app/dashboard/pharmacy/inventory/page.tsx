@@ -15,6 +15,15 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { Search, Pill, Package, AlertTriangle, Ban, CalendarDays, RefreshCcw, MoreVertical, Eye, Trash2, Plus, Pencil } from 'lucide-react'
 import { PharmacyKpiCard } from '../_components/pharmacy-kpi-card'
 import { cn } from '@/lib/utils'
@@ -47,6 +56,8 @@ export default function PharmacyInventoryPremiumPage() {
   const [loading, setLoading] = useState(true)
   const [rows, setRows] = useState<PharmacyItem[]>([])
   const [stats, setStats] = useState({ total: 0, lowStock: 0, outOfStock: 0, expiringSoon: 0 })
+  const [adjustItem, setAdjustItem] = useState<PharmacyItem | null>(null)
+  const [adjustQty, setAdjustQty] = useState('')
 
   const [search, setSearch] = useState('')
   const [category, setCategory] = useState<string>('all')
@@ -129,8 +140,8 @@ export default function PharmacyInventoryPremiumPage() {
           <div>
             <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-slate-50">Medicine Inventory</h1>
           </div>
-          <Button 
-            asChild 
+          <Button
+            asChild
             className="h-12 rounded-xl bg-[#0EA5E9] hover:bg-[#0c96d4] text-white font-bold px-8 shadow-lg shadow-sky-200 dark:shadow-none transition-all active:scale-95"
           >
             <Link href="/dashboard/pharmacy/inventory/new">
@@ -164,7 +175,7 @@ export default function PharmacyInventoryPremiumPage() {
                   className="pl-10 h-10 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-xl focus-visible:ring-1 focus-visible:ring-[#0EA5E9]"
                 />
               </div>
-              
+
               <div className="flex items-center gap-2">
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger className="h-10 w-[160px] bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 rounded-xl">
@@ -189,7 +200,7 @@ export default function PharmacyInventoryPremiumPage() {
                 </Select>
               </div>
             </div>
-            
+
             <Button
               variant="outline"
               size="icon"
@@ -215,7 +226,7 @@ export default function PharmacyInventoryPremiumPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                   Array.from({ length: 5 }).map((_, i) => (
+                  Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i} className="animate-pulse">
                       {Array.from({ length: 6 }).map((_, j) => (
                         <TableCell key={j} className="py-6 px-6">
@@ -223,7 +234,7 @@ export default function PharmacyInventoryPremiumPage() {
                         </TableCell>
                       ))}
                     </TableRow>
-                   ))
+                  ))
                 ) : rows.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="h-64 text-center">
@@ -280,9 +291,9 @@ export default function PharmacyInventoryPremiumPage() {
                         </TableCell>
                         <TableCell className="py-4 px-6 text-right">
                           <div className="flex items-center justify-end gap-3">
-                            <Link 
-                               href={`/dashboard/pharmacy/inventory/new?id=${r.id}`}
-                               className="text-sm font-medium text-[#0EA5E9] hover:underline"
+                            <Link
+                              href={`/dashboard/pharmacy/inventory/new?id=${r.id}`}
+                              className="text-sm font-medium text-[#0EA5E9] hover:underline"
                             >
                               Edit
                             </Link>
@@ -297,6 +308,10 @@ export default function PharmacyInventoryPremiumPage() {
                                 <DropdownMenuItem onClick={() => router.push(`/dashboard/pharmacy/inventory/new?id=${r.id}`)} className="flex items-center gap-2 p-3 font-medium">
                                   <Pencil className="h-4 w-4 text-[#0EA5E9]" />
                                   Edit Medicine
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setAdjustItem(r); setAdjustQty(''); }} className="flex items-center gap-2 p-3 font-medium text-emerald-600 focus:text-emerald-600">
+                                  <Plus className="h-4 w-4" />
+                                  Adjust Stock
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleDelete(r.id)} className="flex items-center gap-2 p-3 font-medium text-red-600 focus:text-red-600">
                                   <Trash2 className="h-4 w-4" />
@@ -326,6 +341,62 @@ export default function PharmacyInventoryPremiumPage() {
           </div>
         </div>
       </div>
+      <Dialog open={!!adjustItem} onOpenChange={(open) => !open && setAdjustItem(null)}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Adjust Stock Quantity</DialogTitle>
+            <DialogDescription>
+              Adjusting stock for: <span className="font-semibold text-slate-900 dark:text-white">{adjustItem?.itemName}</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-6 py-4">
+            <div className="flex flex-col gap-3">
+              <Label className="text-sm font-semibold">Adjustment Quantity (Units)</Label>
+              <Input
+                type="number"
+                placeholder="e.g. 10 or -5"
+                value={adjustQty}
+                onChange={(e) => setAdjustQty(e.target.value)}
+                className="col-span-3 text-sm h-11"
+              />
+              <p className="text-xs text-slate-500">
+                Current stock: {adjustItem?.stockQuantity} units<br />
+                Positive value to add stock, negative to subtract.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAdjustItem(null)}>Cancel</Button>
+            <Button
+              className="bg-[#0EA5E9] hover:bg-[#0c96d4] text-white"
+              onClick={async () => {
+                const delta = parseInt(adjustQty, 10);
+                if (isNaN(delta) || delta === 0) {
+                  toast.error('Please enter a valid non-zero adjustment quantity')
+                  return
+                }
+                const newStock = Number(adjustItem?.stockQuantity || 0) + delta;
+                if (newStock < 0) {
+                  toast.error('Adjustment would result in negative stock.')
+                  return
+                }
+                try {
+                  await api.post(`/inventory/pharmacy/${adjustItem?.id}/adjust`, { quantity: delta })
+                  toast.success('Stock adjusted successfully')
+                  setAdjustItem(null)
+                  setAdjustQty('')
+                  load()
+                  fetchStats()
+                } catch {
+                  toast.error('Failed to adjust stock')
+                }
+              }}
+            >
+              Adjust Stock
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

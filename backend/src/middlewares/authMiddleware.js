@@ -23,7 +23,7 @@ export const authenticate = async (req, res, next) => {
                 : '';
 
         if (requestedBranchId) {
-            if (req.user.role === 'SUPERADMIN') {
+            if (req.user.role === 'SUPERADMIN' || req.user.role === 'ADMIN') {
                 req.user.branchId = requestedBranchId;
             } else {
                 // Allow the user's primary assigned branch from the token.
@@ -73,7 +73,7 @@ export const checkPermission = (module, action) => {
             const role = req.user.role;
 
             // SUPERADMIN bypasses all checks
-            if (role === 'SUPERADMIN') {
+            if (role === 'SUPERADMIN' || role === 'ADMIN') {
                 return next();
             }
 
@@ -112,7 +112,7 @@ export const checkAnyPermission = (modules, action) => {
             const role = req.user.role;
 
             // SUPERADMIN bypasses all checks
-            if (role === 'SUPERADMIN') {
+            if (role === 'SUPERADMIN' || role === 'ADMIN') {
                 return next();
             }
 

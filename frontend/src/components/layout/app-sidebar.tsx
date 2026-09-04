@@ -50,6 +50,7 @@ import {
     SidebarMenuSubButton,
     SidebarRail,
     SidebarSeparator,
+    useSidebar,
 } from '@/components/ui/sidebar'
 import {
     DropdownMenu,
@@ -202,8 +203,7 @@ const roleNavigation: Record<string, NavSection[]> = {
         {
             section: 'SYSTEM',
             items: [
-                { title: 'Tasks', icon: ClipboardList, url: '#', comingSoon: true },
-                { title: 'Settings', icon: Settings, url: '#', comingSoon: true },
+                { title: 'Settings', icon: Settings, url: '/dashboard/settings' },
             ],
         },
     ],
@@ -296,8 +296,7 @@ const roleNavigation: Record<string, NavSection[]> = {
         {
             section: 'SYSTEM',
             items: [
-                { title: 'Tasks', icon: ClipboardList, url: '#', comingSoon: true },
-                { title: 'Settings', icon: Settings, url: '#', comingSoon: true },
+                { title: 'Settings', icon: Settings, url: '/dashboard/settings' },
             ],
         },
     ],
@@ -561,21 +560,35 @@ function CollapsibleNavItem({
         const canNavigate = item.url !== '#' && !isComingSoon
         return (
             <SidebarMenuItem>
-                <SidebarMenuButton
-                    tooltip={isComingSoon ? `${item.title} (Coming soon)` : item.title}
-                    isActive={isActive}
-                    onClick={() => { if (canNavigate) onSelect() }}
-                    className={`h-[42px] px-3.5 transition-all duration-200 group/item rounded-lg ${isActive
-                        ? '!bg-[#0EA5E9] !text-white shadow-[0_4px_12px_rgba(14,165,233,0.3)]'
-                        : 'hover:bg-sidebar-accent text-sidebar-foreground hover:text-[#0EA5E9] dark:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-[#0EA5E9]'
-                        } ${isComingSoon ? 'cursor-default' : ''}`}
-                >
-                    <item.icon className={`h-[21px] w-[21px] shrink-0 transition-colors duration-200 ${isActive ? '!text-white' : 'text-sidebar-foreground/70 group-hover/item:text-[#0EA5E9] dark:text-sidebar-foreground/80'}`} />
-                    <span className={`text-[15px] font-semibold tracking-tight transition-colors duration-200 ml-1 ${isActive ? '!text-white' : ''}`}>{item.title}</span>
-                    {isComingSoon && (
+                {isComingSoon ? (
+                    <SidebarMenuButton
+                        tooltip={`${item.title} (Coming soon)`}
+                        isActive={isActive}
+                        className={`h-[42px] px-3.5 transition-all duration-200 group/item rounded-lg cursor-default ${isActive
+                            ? '!bg-[#0EA5E9] !text-white shadow-[0_4px_12px_rgba(14,165,233,0.3)]'
+                            : 'hover:bg-sidebar-accent text-sidebar-foreground hover:text-[#0EA5E9] dark:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-[#0EA5E9]'
+                            }`}
+                    >
+                        <item.icon className={`h-[21px] w-[21px] shrink-0 transition-colors duration-200 ${isActive ? '!text-white' : 'text-sidebar-foreground/70 group-hover/item:text-[#0EA5E9] dark:text-sidebar-foreground/80'}`} />
+                        <span className={`text-[15px] font-semibold tracking-tight transition-colors duration-200 ml-1 ${isActive ? '!text-white' : ''}`}>{item.title}</span>
                         <span className="ml-auto text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 bg-amber-100 dark:bg-amber-950/50 px-1.5 py-0.5 rounded">Coming soon</span>
-                    )}
-                </SidebarMenuButton>
+                    </SidebarMenuButton>
+                ) : (
+                    <SidebarMenuButton
+                        asChild
+                        tooltip={item.title}
+                        isActive={isActive}
+                        className={`h-[42px] px-3.5 transition-all duration-200 group/item rounded-lg ${isActive
+                            ? '!bg-[#0EA5E9] !text-white shadow-[0_4px_12px_rgba(14,165,233,0.3)]'
+                            : 'hover:bg-sidebar-accent text-sidebar-foreground hover:text-[#0EA5E9] dark:text-sidebar-foreground dark:hover:bg-sidebar-accent dark:hover:text-[#0EA5E9]'
+                            }`}
+                    >
+                        <Link href={item.url} onClick={onSelect}>
+                            <item.icon className={`h-[21px] w-[21px] shrink-0 transition-colors duration-200 ${isActive ? '!text-white' : 'text-sidebar-foreground/70 group-hover/item:text-[#0EA5E9] dark:text-sidebar-foreground/80'}`} />
+                            <span className={`text-[15px] font-semibold tracking-tight transition-colors duration-200 ml-1 ${isActive ? '!text-white' : ''}`}>{item.title}</span>
+                        </Link>
+                    </SidebarMenuButton>
+                )}
             </SidebarMenuItem>
         )
     }
@@ -608,6 +621,7 @@ function CollapsibleNavItem({
                                 <SidebarMenuSubButton asChild>
                                     <Link
                                         href={subItem.url}
+                                        onClick={onSelect}
                                         className={`flex items-center w-full rounded-lg px-4 py-2.5 text-[14px] leading-5 font-semibold transition-colors duration-200 whitespace-normal break-words ${isSubActive
                                             ? 'text-[#0EA5E9] bg-sidebar-accent'
                                             : 'text-sidebar-foreground hover:text-[#0EA5E9] hover:bg-sidebar-accent'
@@ -694,6 +708,7 @@ function NavSectionGroup({
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     const router = useRouter()
+    const { setOpenMobile } = useSidebar()
     const params = useParams<{ role?: string }>()
     const roleParam = typeof params?.role === 'string' ? params.role : ''
 
@@ -760,11 +775,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 <CollapsibleNavItem
                                     key={`${section.section}-${item.title}`}
                                     item={item}
-                                    onSelect={() => {
-                                        if (item.url && item.url !== '#' && !item.comingSoon) {
-                                            router.push(item.url)
-                                        }
-                                    }}
+                                    onSelect={() => setOpenMobile(false)}
                                 />
                             ))}
                         </SidebarMenu>

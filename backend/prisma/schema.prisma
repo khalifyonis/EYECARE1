@@ -6,6 +6,7 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 
@@ -145,6 +146,7 @@ model Doctor {
   licenseNumber         String?               @unique @map("license_number")
   specialization        Specialization        @default(OPHTHALMOLOGY)
   phone                 String?
+  dailyPatientLimit     Int?                  @map("daily_patient_limit")
   branchId              String                @map("branch_id")
   createdAt             DateTime              @default(now()) @map("created_at")
   updatedAt             DateTime              @updatedAt @map("updated_at")
