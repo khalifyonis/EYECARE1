@@ -260,7 +260,7 @@ export default function IncomeByServicePage() {
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                                     <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                                     <YAxis tick={{ fontSize: 10 }} />
-                                    <RechartsTooltip formatter={(v: number) => fmt(v)} />
+                                    <RechartsTooltip formatter={(v: any) => fmt(Number(v))} />
                                     <Legend />
                                     <Bar dataKey="revenue" name="Revenue" fill="#0EA5E9" radius={[4, 4, 0, 0]} />
                                     <Bar dataKey="outstanding" name="Outstanding" fill="#EF4444" radius={[4, 4, 0, 0]} />
@@ -271,12 +271,12 @@ export default function IncomeByServicePage() {
                             <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-4">Revenue Distribution</h3>
                             <ResponsiveContainer width="100%" height={240}>
                                 <RePieChart>
-                                    <Pie data={data.chart2} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                                    <Pie data={data.chart2} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`} labelLine={false}>
                                         {data.chart2.map((_, i) => (
                                             <Cell key={i} fill={COLORS[i % COLORS.length]} />
                                         ))}
                                     </Pie>
-                                    <RechartsTooltip formatter={(v: number) => fmt(v)} />
+                                    <RechartsTooltip formatter={(v: any) => fmt(Number(v))} />
                                 </RePieChart>
                             </ResponsiveContainer>
                         </div>
@@ -291,7 +291,7 @@ export default function IncomeByServicePage() {
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
                                     <XAxis dataKey="name" tick={{ fontSize: 10 }} />
                                     <YAxis tick={{ fontSize: 10 }} />
-                                    <RechartsTooltip formatter={(v: number) => fmt(v)} />
+                                    <RechartsTooltip formatter={(v: any) => fmt(Number(v))} />
                                     <Line type="monotone" dataKey="value" name="Revenue" stroke="#0EA5E9" strokeWidth={2} dot={false} />
                                 </LineChart>
                             </ResponsiveContainer>

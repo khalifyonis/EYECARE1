@@ -273,7 +273,7 @@ export default function RevenueTrendPage() {
                     <YAxis tick={{ fontSize: 10 }} tickLine={false} axisLine={false} tickFormatter={v => `$${(v / 1000).toFixed(0)}k`} />
                     <RechartsTooltip
                       contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: 8, border: '1px solid hsl(var(--border))', fontSize: 11 }}
-                      formatter={(val: number) => [fmt(val), 'Revenue']}
+                      formatter={(val: any) => [fmt(Number(val)), 'Revenue']}
                     />
                     <Legend verticalAlign="top" height={36} wrapperStyle={{ fontSize: 11 }} />
                     <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#0EA5E9" strokeWidth={2} fill="url(#revenueGrad)" dot={{ r: 3 }} />
@@ -298,7 +298,7 @@ export default function RevenueTrendPage() {
                       <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} width={100} />
                       <RechartsTooltip
                         contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: 8, border: '1px solid hsl(var(--border))', fontSize: 11 }}
-                        formatter={(val: number) => [fmt(val), 'Revenue']}
+                        formatter={(val: any) => [fmt(Number(val)), 'Revenue']}
                       />
                       <Bar dataKey="revenue" name="Revenue" radius={[0, 6, 6, 0]}>
                         {data.serviceChart.map((_, idx) => (
@@ -326,7 +326,7 @@ export default function RevenueTrendPage() {
                         </Pie>
                         <RechartsTooltip
                           contentStyle={{ backgroundColor: 'hsl(var(--background))', borderRadius: 8, border: '1px solid hsl(var(--border))', fontSize: 11 }}
-                          formatter={(val: number) => [fmt(val), 'Revenue']}
+                          formatter={(val: any) => [fmt(Number(val)), 'Revenue']}
                         />
                       </RePieChart>
                     </ResponsiveContainer>

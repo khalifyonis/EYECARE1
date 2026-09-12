@@ -234,10 +234,10 @@ export default function DoctorPerformancePage() {
                             <h3 className="text-sm font-bold text-slate-700 dark:text-slate-200 mb-4">Revenue by Doctor</h3>
                             <ResponsiveContainer width="100%" height={240}>
                                 <RePieChart>
-                                    <Pie data={data.chart2} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => percent > 0.05 ? `${name.split(' ')[0]} ${(percent * 100).toFixed(0)}%` : ''} labelLine={false}>
+                                    <Pie data={data.chart2} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => (percent || 0) > 0.05 ? `${(name || '').split(' ')[0]} ${((percent || 0) * 100).toFixed(0)}%` : ''} labelLine={false}>
                                         {data.chart2.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                                     </Pie>
-                                    <RechartsTooltip formatter={(v: number) => fmt(v)} />
+                                    <RechartsTooltip formatter={(v: any) => fmt(Number(v))} />
                                 </RePieChart>
                             </ResponsiveContainer>
                         </div>

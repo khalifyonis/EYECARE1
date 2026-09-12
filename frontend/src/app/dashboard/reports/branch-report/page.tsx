@@ -187,10 +187,10 @@ export default function BranchReportPage() {
                             <ResponsiveContainer width="100%" height={240}>
                                 <RePieChart>
                                     <Pie data={data.chart2.filter(d => d.value > 0)} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90}
-                                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                                        label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`} labelLine={false}>
                                         {data.chart2.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                                     </Pie>
-                                    <RechartsTooltip formatter={(v: number) => fmt(v)} />
+                                    <RechartsTooltip formatter={(v: any) => fmt(Number(v))} />
                                 </RePieChart>
                             </ResponsiveContainer>
                         </div>
